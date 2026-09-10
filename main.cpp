@@ -6,10 +6,8 @@
 /* Description: IQ2 project */
 /* Lab 6*/
 /*----------------------------------------------------------------------------*/
+#include "navigation.h"
 #include "vex.h"
-
-#define LED_PRESSED 1
-#define LED_RELEASED 0
 
 #define LOOP_DELAY 200
 
@@ -47,16 +45,8 @@
 #define HEADING_WEST 270
 
 typedef enum {
-  TILE_NORMAL,
-  TILE_FINISH,
-  TILE_CHECKPOINT,
-  TILE_WAYPOINT,
-  TILE_HAZARD,
-  TILE_START200
-} TileType;
-
-typedef enum {
   STATE_INIT,
+  STATE_COLOR_CAL,
   STATE_IDLE,
   STATE_COLOUR_CHECK,
   STATE_WALL_CHECK,
@@ -65,23 +55,23 @@ typedef enum {
   STATE_ERROR
 } RobotState;
 
-TileType classifyTile(double hue, double bright) {
+TileColor classifyTileColor(double hue, double bright) {
   if (bright < BRIGHT_LOW) {
-    return TILE_NORMAL;
+    return BLACK;
   }
   if (hue > RED_HUE_MIN || hue < RED_HUE_MAX) {
-    return TILE_HAZARD;
+    return RED;
   }
   if (hue > GREEN_HUE_MIN && hue < GREEN_HUE_MAX) {
-    return TILE_FINISH;
+    return GREEN;
   }
   if (hue > BLUE_HUE_MIN && hue < BLUE_HUE_MAX) {
-    return TILE_CHECKPOINT;
+    return BLUE;
   }
   if (hue > YELLOW_HUE_MIN && hue < YELLOW_HUE_MAX) {
-    return TILE_WAYPOINT;
+    return YELLOW;
   }
-  return TILE_NORMAL;
+  return WHITE;
 }
 
 using namespace vex;
@@ -106,8 +96,6 @@ bumper Bumper1 = bumper(PORT11);
 double buffer[BUFFER_SIZE];
 int writeIndex = 0;
 int count = 0;
-
-int led_released = LED_RELEASED;
 
 void bufferWrite(double value) {
   buffer[writeIndex] = value;
@@ -153,7 +141,27 @@ void handleInit(void) {
   } while (brainInertial.isCalibrating());
 
   gHeading = NORTH;
-  gState = STATE_IDLE;
+  gState = STATE_COLOR_CAL;
+}
+
+void handleColorCal() {
+
+  touchLEDSensor.on(white);
+  if (touchLEDSensor.pressing()) {
+    // color calibrate logic here
+  }
+  touchLEDSensor.on(black);
+  if (touchLEDSensor.pressing()) {
+  }
+  touchLEDSensor.on(red);
+  if (touchLEDSensor.pressing()) {
+  }
+  touchLEDSensor.on(green);
+  if (touchLEDSensor.pressing()) {
+  }
+  touchLEDSensor.on(blue);
+  if (touchLEDSensor.pressing()) {
+  }
 }
 
 void handleIdle(void) {
@@ -169,7 +177,8 @@ void handleIdle(void) {
 
 void handleColourCheck(void) {
   touchLEDSensor.on(blue);
-  TileType tile = classifyTile(opticalSensor.hue(), opticalSensor.brightness());
+  Tile tile = classifyTile(
+      classifyTileColor(opticalSensor.hue(), opticalSensor.brightness()));
 
   Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
@@ -195,14 +204,17 @@ void handleWallCheck(void) {
 
 void handleDecide(void) {
   touchLEDSensor.on(yellow);
-
-  // EXTENSION POINT 1: your navigation algorithm replaces this rule
-  if (gWallAhead) {
-    gNextDir = (Direction)((gHeading + 1) % 4); // turn right
-  } else {
-    gNextDir = gHeading; // carry straight on
+  Action decsion = decide(gWallAhead);
+  switch (decsion) {
+  case LEFT:
+    gNextDir = (Direction)((gHeading - 1) % 4);
+    break;
+  case RIGHT:
+    gNextDir = (Direction)((gHeading + 1) % 4);
+    break;
+  default:
+    gNextDir = gHeading;
   }
-
   gState = STATE_MOVE;
 }
 
@@ -228,6 +240,9 @@ void handleError(void) {
     gHeading = gNextDir;
   }
 
+  touchLEDSensor.on(white);
+  if (touchLEDSensor.pressing()) {
+  }
   Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
 
   // EXTENSION POINT 3: collision detection goes here
@@ -241,8 +256,11 @@ void runStateMachine(void) {
   case STATE_INIT:
     handleInit();
     break;
+  case STATE_COLOR_CAL:
+
   case STATE_IDLE:
-    handleIdle();LOOP_DELAY
+    handleIdle();
+    LOOP_DELAY
     break;
   case STATE_COLOUR_CHECK:
     handleColourCheck();
