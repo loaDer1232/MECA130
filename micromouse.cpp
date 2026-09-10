@@ -1,23 +1,25 @@
 #include "API/API.h"
 #include "navigation.h"
-#include <stdio.h>
 
-// You do not need to edit this file.
-// This program just runs your solver and passes the choices
-// to the simulator.
-int main(int argc, char *argv[]) {
-  Action decsion = decide(API_wallFront());
-  switch (decsion) {
-  case LEFT:
-    API_turnLeft();
-    API_moveForward();
-    break;
-  case RIGHT:
-    API_turnRight();
-    API_moveForward();
-    break;
-  default:
-    API_moveForward();
-    break;
+int main() {
+  while (1) {
+    Action decsion = decide(API_wallFront());
+    switch (decsion) {
+    case FORWARD:
+      API_moveForward();
+      debug_log(const_cast<char *>("Moving forward"));
+      break;
+    case LEFT:
+      API_turnLeft();
+      debug_log(const_cast<char *>("Turning left"));
+      break;
+    case RIGHT:
+      API_turnRight();
+      debug_log(const_cast<char *>("Turing right"));
+      break;
+    default:
+      debug_log(const_cast<char *>("undefined state"));
+      break;
+    }
   }
 }

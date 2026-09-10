@@ -2,7 +2,7 @@
 
 Action decide(bool wallFront) {
   if (wallFront) {
-    return LEFT;
+    return RIGHT;
   } else {
     return FORWARD;
   }
