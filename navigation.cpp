@@ -1,5 +1,9 @@
 #include "navigation.h"
-Cell maze[16][16];
+
+#define MAZE_HEIGHT 16
+#define MAZE_WIDTH 16
+
+Cell maze[MAZE_HEIGHT][MAZE_WIDTH];
 
 int loop = 0;
 

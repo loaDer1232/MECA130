@@ -4,10 +4,11 @@
 /* Author: kinganseam erasmuchri */
 /* Created: 03/09/2026, 11:00:00 */
 /* Description: IQ2 project */
-/* Lab 6*/
+/* Final Project MECA130*/
 /*----------------------------------------------------------------------------*/
 #include "navigation.h"
 #include "vex.h"
+#include <cmath>
 
 #define LOOP_DELAY 200
 
@@ -35,7 +36,6 @@
 #define WHEEL_CIRCUMFERENCE (3.14159 * WHEEL_DIAMETER_MM) // task 1.2
 #define TRACK_WIDTH_MM 18.63                              // task 1.3
 #define WHEEL_BASE_MM 121.7                               // task 1.3
-#define GEAR_RATIO 1.0                                    // always direct drive
 #define CELL_SIZE_MM 300.0 // adjust to r/w measurement
 
 #define INERTIAL_TOLERANCE 2
@@ -56,20 +56,27 @@ typedef enum {
   STATE_RECOVERY,
 } RobotState;
 
+typedef struct {
+  double max;
+  double min;
+} HueValues;
+
+HueValues redHue, greenHue, blueHue, yellowHue;
+
 TileColor classifyTileColor(double hue, double bright) {
   if (bright < BRIGHT_LOW) {
     return BLACK;
   }
-  if (hue > RED_HUE_MIN || hue < RED_HUE_MAX) {
+  if (hue > redHue.min || hue < redHue.max) {
     return RED;
   }
-  if (hue > GREEN_HUE_MIN && hue < GREEN_HUE_MAX) {
+  if (hue > greenHue.min && hue < greenHue.max) {
     return GREEN;
   }
-  if (hue > BLUE_HUE_MIN && hue < BLUE_HUE_MAX) {
+  if (hue > blueHue.min && hue < blueHue.max) {
     return BLUE;
   }
-  if (hue > YELLOW_HUE_MIN && hue < YELLOW_HUE_MAX) {
+  if (hue > yellowHue.min && hue < yellowHue.max) {
     return YELLOW;
   }
   return WHITE;
@@ -190,6 +197,24 @@ void hitWall(Action wall) {
   }
   gState = STATE_ERROR; // goes to error state if cannot self-re-orient
 }
+
+HueValues colorAvrager() {
+  double total = 0.0;
+  for (size_t i = 0; i < NUM_SAMPLES; i++) {
+    values[i] = opticalSensor.hue();
+    total += values[i];
+  }
+  double mean = total / NUM_SAMPLES;
+  double stddev = 0.0;
+  for (auto val : values) {
+    stddev += std::pow(val - mean, 2);
+  }
+  stddev = sqrt(stdev / NUM_SAMPLES);
+  double stderror = stddev / sqrt(NUM_SAMPLES);
+  HueValues hue = {mean + stderror, mean - stderror};
+  return hue;
+}
+
 // --- Handlers ---
 
 void handleInit(void) {
@@ -204,30 +229,60 @@ void handleInit(void) {
   } while (brainInertial.isCalibrating());
 
   gHeading = NORTH;
-  gState = STATE_COLOR_CAL;
+  gState = STATE_IDLE;
 }
 
 void handleColorCal() {
-
-  touchLEDSensor.on(white); // start point
-  if (touchLEDSensor.pressing()) {
-    // TODO color calibrate logic here
-  }
   touchLEDSensor.on(black); // corridor
-  if (touchLEDSensor.pressing()) {
-  }
-  touchLEDSensor.on(red); //
-  if (touchLEDSensor.pressing()) {
-  }
+  Brain.Screen.setCursor(1, 1);
+  Brain.Screen.print("place on black square");
+
+  // Normal floor
+  while (!touchLEDSensor.pressing())
+    wait(WAIT_TIME, msec);
+  // TODO black calbration
+  touchLEDSensor.on(red);
+  Brain.Screen.setCursor(1, 1);
+  Brain.Screen.print("place on red square");
+
+  // Hazard
+  while (!touchLEDSensor.pressing())
+    wait(WAIT_TIME, msec);
+  redHue = colorAvrager();
   touchLEDSensor.on(green);
-  if (touchLEDSensor.pressing()) { // assembly point
-  }
+  Brain.Screen.setCursor(1, 1);
+  Brain.Screen.print("place on green square");
+
+  // Assembly point
+  while (!touchLEDSensor.pressing())
+    wait(WAIT_TIME, msec);
+  greenHue = colorAvrager();
   touchLEDSensor.on(blue);
-  if (touchLEDSensor.pressing()) { // peeps
-  }
+  Brain.Screen.setCursor(1, 1);
+  Brain.Screen.print("place on blue square");
+
+  // peeps
+  while (!touchLEDSensor.pressing())
+    wait(WAIT_TIME, msec);
+  blueHue = colorAvrager();
   touchLEDSensor.on(yellow);
-  if (touchLEDSensor.pressing()) { // cache
-  }
+  Brain.Screen.setCursor(1, 1);
+  Brain.Screen.print("place on yellow square");
+
+  // Cache
+  while (!touchLEDSensor.pressing())
+    wait(WAIT_TIME, msec);
+  yellowHue = colorAvrager();
+  Brain.Screen.setCursor(1, 1);
+  Brain.Screen.print("place on white square");
+  touchLEDSensor.on(white);
+
+  // Start/finish point
+  while (!touchLEDSensor.pressing())
+    wait(WAIT_TIME, msec);
+  // TODO brightness calbration code
+
+  gState = STATE_INIT;
 }
 
 void handleIdle(void) {
@@ -351,7 +406,6 @@ void runStateMachine(void) {
     break;
   case STATE_IDLE:
     handleIdle();
-    LOOP_DELAY
     break;
   case STATE_COLOUR_CHECK:
     handleColourCheck();
