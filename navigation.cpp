@@ -1,6 +1,8 @@
 #include "navigation.h"
 Cell maze[16][16];
 
+int loop = 0;
+
 int x = 0;
 int y = 0;
 
@@ -23,28 +25,50 @@ void updateXY() {
   }
 }
 
-void updateWall(Cell *cell) {
+void updateWall(Cell *cell, bool wallFront) {
   switch (heading) {
   case NORTH:
-    cell->wallNorth = true;
+    cell->wallNorth = wallFront;
     break;
   case EAST:
-    cell->wallEast = true;
+    cell->wallEast = wallFront;
     break;
   case SOUTH:
-    cell->wallSouth = true;
+    cell->wallSouth = wallFront;
     break;
   case WEST:
-    cell->wallWest = true;
+    cell->wallWest = wallFront;
+    break;
+  }
+}
+
+void updateHeading(Action direction) {
+  switch (direction) {
+  case LEFT:
+    heading = static_cast<Heading>((heading - 1) % 4);
+    break;
+  case RIGHT:
+    heading = static_cast<Heading>((heading + 1) % 4);
+    break;
+  default:
     break;
   }
 }
 
 Action decide(bool wallFront) {
   Cell *cell = &maze[x][y];
-  cell->type = TILE_NORMAL;
-  if (wallFront) {
-    updateWall(cell);
+  if (cell->type == TILE_UNKNOWN) {
+    loop = (loop + 1) % 5;
+    if (loop != 0) {
+      updateWall(cell, wallFront);
+      updateHeading(RIGHT);
+      return RIGHT;
+    }
+    cell->type = TILE_NORMAL;
+  }
+  if (cell->wallNorth && cell->wallWest && heading == NORTH) {
+    updateHeading(RIGHT);
+    return RIGHT;
   }
   updateXY();
   return FORWARD;
@@ -105,7 +129,7 @@ Info getInfo() {
     info.color = 'c';
     break;
   default:
-    info.color = 'r';
+    info.color = 'o';
   }
   return info;
 }
