@@ -22,7 +22,7 @@ makes is one you wrote beforehand.
 ### Scoring
 | action                 | points |
 |------------------------|--------|
-| Find survivor          | +100   |
+| Find survivor          | +100   | 
 | Find cache             | +50    |
 | deploy and exit        | +200   |
 | react to collapse      | +0     |

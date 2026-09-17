@@ -1,5 +1,6 @@
 #include "API/API.h"
 #include "navigation.h"
+#include <cstdlib>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -50,10 +51,14 @@ void plotWalls(int x, int y, Cell cell) {
     API_setWall(x, y, 'w');
 }
 
-char *makeDebugStr(int x, int y, char color, char heading) {
-  char *str = (char *)malloc(50 * sizeof(char));
+char *makeDebugStr(int x, int y, char color, char heading, int surviors,
+                   int caches, int hazards) {
+  char *str = (char *)malloc(150 * sizeof(char));
   if (str != NULL) {
-    sprintf(str, "Heading: %c, x:%i, y:%i, color:%c", heading, x, y, color);
+    sprintf(str,
+            "Heading: %c, x:%i, y:%i, color:%c\n surviors found: %i/3, caches "
+            "found: %i/5 Hazards found: %i/3",
+            heading, x, y, color, surviors, caches, hazards);
   }
   return str;
 }
@@ -82,6 +87,10 @@ int main() {
       debug_log(const_cast<char *>("undefined state"));
       break;
     }
-    debug_log(makeDebugStr(info.x, info.y, info.color, info.heading));
+    char *str =
+        makeDebugStr(info.x, info.y, info.color, info.heading,
+                     info.survivorsFound, info.cachesFound, info.hazardsFound);
+    debug_log(str);
+    free(str);
   }
 }

@@ -27,6 +27,9 @@ typedef struct Cell {
 typedef struct Info {
   int x;
   int y;
+  int survivorsFound;
+  int cachesFound;
+  int hazardsFound;
   char heading;
   char color;
   Cell cell;

@@ -5,7 +5,9 @@
 
 Cell maze[MAZE_HEIGHT][MAZE_WIDTH];
 
-int loop = 0;
+int cachesFound = 0;
+int survivorsFound = 0;
+int hazardsFound = 0;
 
 int x = 0;
 int y = 0;
@@ -65,6 +67,15 @@ Action decide(bool wallFront, TileColor color) {
   if (cell->type == TILE_UNKNOWN) {
     cell->type = classifyTile(color);
   }
+  if (cell->type == TILE_CACHE) {
+    cachesFound++;
+  }
+  if (cell->type == TILE_HAZARD) {
+    hazardsFound++;
+  }
+  if (cell->type == TILE_SURVIVOR) {
+    survivorsFound++;
+  }
   if (wallFront) {
     updateWall(cell, wallFront);
     updateHeading(RIGHT);
@@ -95,6 +106,9 @@ Info getInfo() {
   Info info;
   info.x = x;
   info.y = y;
+  info.survivorsFound = survivorsFound;
+  info.cachesFound = cachesFound;
+  info.hazardsFound = hazardsFound;
   switch (heading) {
   case NORTH:
     info.heading = 'n';
