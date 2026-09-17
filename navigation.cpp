@@ -55,9 +55,17 @@ void updateHeading(Action direction) {
   }
 }
 
-Action decide(bool wallFront) {
+Action decide(bool wallFront, TileColor color) {
   Cell *cell = &maze[x][y];
   // TODO implement navigation
+  if (cell->type == TILE_UNKNOWN) {
+    cell->type = classifyTile(color);
+  }
+  if (wallFront) {
+    updateWall(cell, wallFront);
+    updateHeading(RIGHT);
+    return RIGHT;
+  }
   updateXY();
   return FORWARD;
 }
@@ -69,13 +77,13 @@ Tile classifyTile(TileColor color) {
   case RED:
     return TILE_HAZARD;
   case GREEN:
-    return TILE_FINISH;
+    return TILE_ASSEMBLY;
   case BLUE:
-    return TILE_CHECKPOINT;
+    return TILE_SURVIVOR;
   case YELLOW:
-    return TILE_WAYPOINT;
+    return TILE_CACHE;
   default:
-    return TILE_NORMAL;
+    return TILE_UNKNOWN;
   }
 }
 
@@ -104,13 +112,13 @@ Info getInfo() {
   case TILE_HAZARD:
     info.color = 'r';
     break;
-  case TILE_FINISH:
+  case TILE_ASSEMBLY:
     info.color = 'g';
     break;
-  case TILE_CHECKPOINT:
+  case TILE_SURVIVOR:
     info.color = 'b';
     break;
-  case TILE_WAYPOINT:
+  case TILE_CACHE:
     info.color = 'y';
     break;
   case TILE_UNKNOWN:
@@ -119,5 +127,6 @@ Info getInfo() {
   default:
     info.color = 'o';
   }
+  info.cell = maze[x][y];
   return info;
 }

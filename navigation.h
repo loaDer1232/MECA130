@@ -3,9 +3,9 @@
 
 typedef enum {
   TILE_NORMAL,
-  TILE_FINISH,
-  TILE_CHECKPOINT,
-  TILE_WAYPOINT,
+  TILE_ASSEMBLY,
+  TILE_SURVIVOR,
+  TILE_CACHE,
   TILE_HAZARD,
   TILE_START,
   TILE_UNKNOWN
@@ -29,9 +29,10 @@ typedef struct Info {
   int y;
   char heading;
   char color;
+  Cell cell;
 } Info;
 
-Action decide(bool wallFront);
+Action decide(bool wallFront, TileColor color);
 Tile classifyTile(TileColor color);
 
 Info getInfo();
