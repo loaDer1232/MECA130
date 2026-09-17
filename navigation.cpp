@@ -57,19 +57,7 @@ void updateHeading(Action direction) {
 
 Action decide(bool wallFront) {
   Cell *cell = &maze[x][y];
-  if (cell->type == TILE_UNKNOWN) {
-    loop = (loop + 1) % 5;
-    if (loop != 0) {
-      updateWall(cell, wallFront);
-      updateHeading(RIGHT);
-      return RIGHT;
-    }
-    cell->type = TILE_NORMAL;
-  }
-  if (cell->wallNorth && cell->wallWest && heading == NORTH) {
-    updateHeading(RIGHT);
-    return RIGHT;
-  }
+  // TODO implement navigation
   updateXY();
   return FORWARD;
 }

@@ -124,75 +124,65 @@ void updateWallDetection(double avg) {
   }
 }
 static RobotState gState = STATE_INIT;
-static Direction gHeading = NORTH;
-static Direction gNextDir = NORTH;
+static Heading gHeading = NORTH;
+static Heading gNextDir = NORTH;
 static bool gWallAhead = false;
 
-
-void hitRightWall() { // recovery script for hitting right wall
+void hitWall(Action wall) {
+  // recovery script for hitting wall
+  directionType dir1, dir2;
   int Tries = 0;
+  double reading = distanceSensor.objectDistance(mm);
+  double prevReading = reading;
+
+  switch (wall) {
+  case LEFT:
+    dir1 = left;
+    dir2 = right;
+    break;
+  case RIGHT:
+    dir1 = right;
+    dir2 = left;
+    break;
+  default:
+    gState = STATE_ERROR;
+    return;
+  }
+
   while (Tries < 5) {
-    Drivetrain.Turnfor(right, 90, 20,
+    Drivetrain.Turnfor(dir1, 90, 20,
                        false); // slow turn to gather wall measurements
-    distance.objectDistance()
-        // assume
-        double readings[WALL_READINGS];
+
   cali_wiggle:
     for (int i = 0; i < WALL_READINGS; i++) {
-      readings[i] = distanceSensor.objectDistance(mm);
+      prevReading = reading;
+      reading = distanceSensor.objectDistance(mm);
       wait(10, msec);
-      if (readings[i] > readings[i - 1]) {
-        Drivetrain.Turnfor(left, 45, 20, false); // approximate turn ok?
-        for (int i = 0; i < WALL_READINGS; i++) {
-          readings[i] = distanceSensor.objectDistance(mm);
-          wait(10, msec);
-          if (readings[i] > readings[i - 1] &&
-              readings[i] > (readings[i - 1] + 5)) {
-            goto cali_wiggle;
-          } else {
-            Drivetrain.Turnfor(left, 90, 40, true); // reorientation
-            touchLEDSensor.set_brightness(100);
-            touchLEDSensor.setBlink(red, 1, 1);
-            gState = STATE_COLOUR_CHECK;
-          }
-        }
-        break;
-      }
-    }
-  }
-  gState = STATE_ERROR; // goes to error state if cannot self-re-orient
-}
 
-void hitLeftWall() {
-  ; // recovery script for hitting left wall
-  int Tries = 0;
-  while (Tries < 5) {
-    double readings[WALL_READINGS];
-    Drivetrain.Turnfor(left, 90, 20,
-                       false); // slow turn to gather wall measurements
-    distance.objectDistance()
-        // assume
-        cali_wiggle : for (int i = 0; i < WALL_READINGS; i++) {
-      readings[i] = distanceSensor.objectDistance(mm);
-      wait(10, msec);
-      if (readings[i] > readings[i - 1]) {
-        Drivetrain.Turnfor(
-            right, 45, 20,
-            false); // approximate turn  or continute cali neccessary?
-        for (int i = 0; i < WALL_READINGS; i++) {
-          readings[i] = distanceSensor.objectDistance(mm);
+      if (reading > prevReading) {
+        Drivetrain.Turnfor(dir2, 45, 20, false); // approximate turn
+
+        for (int j = 0; j < WALL_READINGS; j++) {
+          prevReading = reading;
+          reading = distanceSensor.objectDistance(mm);
           wait(10, msec);
-          if (readings[i] > readings[i - 1] &&
-              readings[i] > (readings[i - 1] + 5)) {
+
+          if (reading > prevReading + 5) {
             Tries++;
+            if (Tries >= 5) {
+              gState =
+                  STATE_ERROR; // goes to error state if cannot self-re-orient
+              return;
+            }
             goto cali_wiggle;
           } else {
-            Drivetrain.Turnfor(right, 90, 40,
+            Drivetrain.Turnfor(dir2, 90, 40,
                                true); // reorientation hopefully complete
             touchLEDSensor.set_brightness(100);
             touchLEDSensor.setBlink(red, 1, 1);
             wait(400, msec);
             gState = STATE_COLOUR_CHECK;
+            return;
           }
         }
       }
@@ -219,24 +209,24 @@ void handleInit(void) {
 
 void handleColorCal() {
 
-  touchLEDSensor.on(white);   //start point
+  touchLEDSensor.on(white); // start point
   if (touchLEDSensor.pressing()) {
-    // color calibrate logic here
+    // TODO color calibrate logic here
   }
-  touchLEDSensor.on(black);        // corridor
+  touchLEDSensor.on(black); // corridor
   if (touchLEDSensor.pressing()) {
   }
-  touchLEDSensor.on(red);           //
+  touchLEDSensor.on(red); //
   if (touchLEDSensor.pressing()) {
   }
   touchLEDSensor.on(green);
-  if (touchLEDSensor.pressing()) {  //assembly point
+  if (touchLEDSensor.pressing()) { // assembly point
   }
   touchLEDSensor.on(blue);
-  if (touchLEDSensor.pressing()) { //peeps
+  if (touchLEDSensor.pressing()) { // peeps
   }
   touchLEDSensor.on(yellow);
-  if (touchLEDSensor.pressing()) {  //cache
+  if (touchLEDSensor.pressing()) { // cache
   }
 }
 
@@ -322,9 +312,9 @@ void handleRecovery(void) { // recovery
     Drivetrain.turnFor(left, 45, 30);
     distance.objectDistance(d2); // distance to wall2
     if (d2 > d1) {
-      hitRightWall(); // recovery from wallhit
+      hitWall(RIGHT); // recovery from wallhit
     } else {
-      hitLeftWall();
+      hitWall(LEFT);
     };
     wait(2000, msec);
     // recovery from wallhit goes here
