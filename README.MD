@@ -1,7 +1,7 @@
 # meca130 mouse robot
 [[_TOC_]]
-##Project Description
-###Challange Brief
+## Project Description
+### Challange Brief
 An earthquake has struck
 A building has been damaged and there are
 people trapped inside who cannot move. Others
@@ -12,14 +12,14 @@ so an autonomous robot goes instead. Once it
 is inside, nobody can help it. Every decision it
 makes is one you wrote beforehand.
 
-###What the Robot has to do
+### What the Robot has to do
 1. Search the building and find every survivor(blue tiles).
 2. Avoid the sections that are still collapsing(red tiles), and record where they were.
 4. Gather everybody at the assembly point, which is the green tile.
 5. Evacuate: find its own way back out through the entry point it came in by.
 6. Collect supply caches(yellow tiles) along the way if the route allows.
 
-###Scoring
+### Scoring
 | action                 | points |
 |------------------------|--------|
 | Find survivor          | +100   |
@@ -45,7 +45,7 @@ makes is one you wrote beforehand.
 | recovry           | fails                  | error       |
 | error             | return to correct cell | color check |
 
-####State Diagram
+#### State Diagram
 ![state machine diagram](./Assets/statemachine.png)
 ### Navigation
 
