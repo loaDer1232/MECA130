@@ -120,8 +120,8 @@ double bufferAverage(void) {
   return total / count;
 }
 
-bool wallDetected = false;
 void updateWallDetection(double avg) {
+  static bool wallDetected;
   if (wallDetected) {
     if (avg > WALL_CLEAR_MM)
       wallDetected = false;
@@ -211,7 +211,7 @@ HueValues colorAvrager() {
   }
   stddev = sqrt(stdev / NUM_SAMPLES);
   double stderror = stddev / sqrt(NUM_SAMPLES);
-  HueValues hue = {mean + stderror, mean - stderror};
+  HueValues hue = {(mean + stderror) % 360.0, (mean - stderror) % 360.0};
   return hue;
 }
 
@@ -317,8 +317,7 @@ void handleWallCheck(void) {
     bufferWrite(distanceSensor.objectDistance(mm));
     wait(READING_DELAY, msec);
   }
-  updateWallDetection(bufferAverage());
-  gWallAhead = wallDetected;
+  gWallAhead = updateWallDetection(bufferAverage());
 
   gState = STATE_DECIDE;
 }
@@ -372,25 +371,21 @@ void handleRecovery(void) { // recovery
       hitWall(LEFT);
     };
     wait(2000, msec);
-    // recovery from wallhit goes here
-    gState = STATE_COLOUR_CHECK;
   }
 }
 
 void handleError(void) {
+  Drivetrain.stop();
+
   touchLEDSensor.on(red);
+  // I dont like that I am calling for the debug object I made
+  Info info = getInfo();
+  Brain.Screen.print("place on center of %i, %i faceing %c" info.x, info.y,
+                     info.heading);
+  while (!touchLEDSensor.pressing())
+    wait(WAIT_TIME, msec);
 
-  if (gNextDir != gHeading) {
-    Drivetrain.turnToHeading((int)gNextDir * QUARTER_TURN, degrees);
-    gHeading = gNextDir;
-  }
-
-  touchLEDSensor.on(white);
-  if (touchLEDSensor.pressing()) {
-  }
-  Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
-
-  // EXTENSION POINT 3: collision detection goes here
+  // Enters loop agian at correct XY
   gState = STATE_COLOUR_CHECK;
 }
 
@@ -418,6 +413,9 @@ void runStateMachine(void) {
     break;
   case STATE_MOVE:
     handleMove();
+    break;
+  case STATE_ERROR:
+    handleError();
     break;
   default:
     Drivetrain.stop();
