@@ -46,7 +46,7 @@ makes is one you wrote beforehand.
 | error             | return to correct cell | color check |
 
 #### State Diagram
-![state machine diagram](./Assets/statemachine.png)
+![state machine diagram](./assets/statemachine.png)
 ### Navigation
 
 
