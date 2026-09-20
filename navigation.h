@@ -13,15 +13,17 @@ typedef enum {
 
 typedef enum TileColor { BLACK, RED, GREEN, BLUE, YELLOW, WHITE } TileColor;
 
-typedef enum Action { LEFT, FORWARD, RIGHT, IDLE } Action;
+typedef enum Action { LEFT, FORWARD, RIGHT, IDLE, REVERSE } Action;
 typedef enum Heading { NORTH, EAST, SOUTH, WEST } Heading;
 
 typedef struct Cell {
   Tile type = TILE_UNKNOWN;
   bool wallNorth;
   bool wallEast;
-  bool wallSouth;
+  bool wallSouth; 
   bool wallWest;
+  int x;
+  int y;
 } Cell;
 
 typedef struct Info {

@@ -83,6 +83,10 @@ int main() {
       API_turnRight();
       debug_log(const_cast<char *>("Turing right"));
       break;
+    case REVERSE:
+      API_turnRight();
+      API_turnRight();
+      API_moveForward();
     default:
       debug_log(const_cast<char *>("undefined state"));
       break;

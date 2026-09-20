@@ -1,4 +1,6 @@
 #include "navigation.h"
+#include "./dataStructs/Queue.h"
+#include "./dataStructs/Stack.h"
 
 #define MAZE_HEIGHT 16
 #define MAZE_WIDTH 16
@@ -56,33 +58,74 @@ void updateHeading(Action direction) {
   case RIGHT:
     heading = static_cast<Heading>((heading + 1) % 4);
     break;
+  case REVERSE:
+    heading = static_cast<Heading>((heading + 2) % 4);
+    break;
   default:
     break;
   }
 }
 
+static Stack edgeNodes; // next nodes to explore
+static Stack visitedNodes;
+static Queue actions;
+
 Action decide(bool wallFront, TileColor color) {
   Cell *cell = &maze[x][y];
   // TODO implement navigation
-  if (cell->type == TILE_UNKNOWN) {
-    cell->type = classifyTile(color);
-  }
-  if (cell->type == TILE_CACHE) {
-    cachesFound++;
-  }
-  if (cell->type == TILE_HAZARD) {
-    hazardsFound++;
-  }
-  if (cell->type == TILE_SURVIVOR) {
-    survivorsFound++;
-  }
-  if (wallFront) {
+
+  static int loop = 0;
+  Cell *nextCell;
+  if ((loop <= 3) && (cell->type == TILE_UNKNOWN)) {
+    cell->x = x;
+    cell->y = y;
     updateWall(cell, wallFront);
     updateHeading(RIGHT);
+    loop++;
     return RIGHT;
   }
-  updateXY();
-  return FORWARD;
+  for (int i = 0; i < 4; i++) {
+    Heading testHeading = static_cast<Heading>(i);
+    Cell *childCell;
+    // tests if neighboring cells are accssable
+    switch (testHeading) {
+    case NORTH:
+      if (!cell->wallNorth)
+        childCell = &maze[x + 1][y];
+      break;
+    case EAST:
+      if (!cell->wallEast)
+        childCell = &maze[x][y + 1];
+      break;
+    case SOUTH:
+      if (!cell->wallSouth)
+        childCell = &maze[x - 1][y];
+      break;
+    case WEST:
+      if (!cell->wallWest)
+        childCell = &maze[x][y - 1];
+      break;
+    }
+    // IF childCell is NOT in visitedNodes OR hazard
+    // push childCell -> visitedNodes & edgeNodes
+    for (int j = 0; j < visitedNodes.size; j++) {
+      Cell *testCell = static_cast<Cell *>(visitedNodes.items[j]);
+      if (!(((childCell->x == testCell->x) && (childCell->y == testCell->y)) ||
+            childCell->type == TILE_HAZARD)) {
+        push(&visitedNodes, childCell);
+        push(&edgeNodes, childCell);
+      }
+    }
+  }
+  nextCell = static_cast<Cell *>(pop(&edgeNodes));
+  // TODO find best path from current cell to next cell
+  if (nextCell->y > cell->y) {
+    return FORWARD;
+  }
+  if (nextCell->x > cell->x) {
+    return RIGHT;
+  }
+  return IDLE;
 }
 
 Tile classifyTile(TileColor color) {
