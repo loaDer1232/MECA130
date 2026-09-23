@@ -4,11 +4,14 @@ bool isEmpty(Stack *stack) { return (stack->top == -1); }
 
 bool isFull(Stack *stack) { return (stack->top >= MAX - 1); }
 
-void push(Stack *stack, void *value) { stack->items[stack->top++] = value; }
+void push(Stack *stack, void *value) {
+  stack->size++;
+  stack->items[++stack->top] = value;
+}
 
 void *pop(Stack *stack) {
-  void *value = stack->items[stack->top];
-  stack->top--;
+  void *value = stack->items[stack->top--];
+  stack->size--;
   return value;
 }
 
