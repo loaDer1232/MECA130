@@ -20,15 +20,7 @@
 #define NUM_SAMPLES 10
 
 #define BUFFER_SIZE 1
-#define BRIGHT_LOW 10
-#define RED_HUE_MIN 340
-#define RED_HUE_MAX 20
-#define GREEN_HUE_MIN 50
-#define GREEN_HUE_MAX 60
-#define BLUE_HUE_MIN 60
-#define BLUE_HUE_MAX 90
-#define YELLOW_HUE_MIN 40
-#define YELLOW_HUE_MAX 75
+
 #define QUARTER_TURN 90 // task 4
 #define FULL_CIRCLE 360
 
@@ -44,6 +36,8 @@
 #define HEADING_EAST 90
 #define HEADING_SOUTH 180
 #define HEADING_WEST 270
+
+#define PI = 3.14159265358979323846
 
 typedef enum RobotState {
   STATE_INIT,
@@ -205,22 +199,18 @@ void hitWall(Action wall) {
 }
 
 HueValues colorAvrager() {
-  double total = 0.0;
-  double values[NUM_SAMPLES];
-  for (size_t i = 0; i < NUM_SAMPLES; i++) {
-    values[i] = opticalSensor.hue();
-    total += values[i];
+  double sumSin = 0.0, sumCos = 0.0;
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    double rad = opticalSensor.hue() * PI / 180.0;
+    sumSin += sin(rad);
+    sumCos += cos(rad);
+    wait(20, msec);
   }
-  double mean = total / NUM_SAMPLES;
-  double stddev = 0.0;
-  for (auto val : values) {
-    stddev += std::pow(val - mean, 2);
-  }
-  stddev = sqrt(stddev / NUM_SAMPLES);
-  double stderror = stddev / sqrt(NUM_SAMPLES);
-  HueValues hue = {(mean + 10), (mean - 10)};
-  Brain.Screen.setCursor(2, 1);
-  Brain.Screen.print("%d", stderror);
+  double mean = atan2(sumSin, sumCos) * 180.0 / PI;
+  if (mean < 0)
+    mean += 360.0;
+
+  HueValues hue = {fmod(mean + 10, 360.0), fmod(mean - 10 + 360.0, 360.0)};
   return hue;
 }
 
@@ -228,7 +218,7 @@ HueValues colorAvrager() {
 
 void handleInit(void) {
   touchLEDSensor.on(purple);
-  //Brain.Screen.clearScreen();
+  // Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("Calibrating...");
 
@@ -294,7 +284,6 @@ void handleColorCal() {
   // Start/finish point
   while (!touchLEDSensor.pressing())
     wait(WAIT_TIME, msec);
-  // TODO brightness calbration code
 
   gState = STATE_COLOUR_CHECK;
 }
@@ -319,9 +308,8 @@ void handleColourCheck(void) {
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("Tile: %d", gtileColor);
 
-
   // EXTENSION POINT 2: objective handler states branch from here
-  //gState = STATE_WALL_CHECK;
+  // gState = STATE_WALL_CHECK;
 }
 
 void handleWallCheck(void) {
