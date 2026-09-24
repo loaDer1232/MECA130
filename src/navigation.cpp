@@ -88,7 +88,7 @@ void mapCell(bool wallFront, TileColor color, Cell *cell) {
     cell->y = y;
     updateWall(cell, wallFront);
     updateHeading(RIGHT);
-    return RIGHT;
+
   }
   cell->type = classifyTile(color);
 }
@@ -143,7 +143,9 @@ Action decide(bool wallFront, TileColor color) {
     }
     nextCell = static_cast<Cell *>(pop(&edgeNodes));
     // TODO find best path from current currentCell to next cell
+    return RIGHT;
   }
+  return IDLE;
 }
 
 Tile classifyTile(TileColor color) {

@@ -32,6 +32,7 @@
 #define QUARTER_TURN 90 // task 4
 #define FULL_CIRCLE 360
 
+#define GEAR_RATIO 1
 #define WHEEL_DIAMETER_MM 63.6                            // task 1.1.1
 #define WHEEL_CIRCUMFERENCE (3.14159 * WHEEL_DIAMETER_MM) // task 1.2
 #define TRACK_WIDTH_MM 18.63                              // task 1.3
@@ -44,7 +45,7 @@
 #define HEADING_SOUTH 180
 #define HEADING_WEST 270
 
-typedef enum {
+typedef enum RobotState {
   STATE_INIT,
   STATE_COLOR_CAL,
   STATE_IDLE,
@@ -64,9 +65,9 @@ typedef struct {
 HueValues redHue, greenHue, blueHue, yellowHue;
 
 TileColor classifyTileColor(double hue, double bright) {
-  if (bright < BRIGHT_LOW) {
-    return BLACK;
-  }
+  // if (bright < BRIGHT_LOW) {
+  //   return BLACK;
+  // }
   if (hue > redHue.min || hue < redHue.max) {
     return RED;
   }
@@ -96,7 +97,7 @@ smartdrive Drivetrain = smartdrive( // task 1.4
     WHEEL_BASE_MM, mm, GEAR_RATIO); // task 1.4
 
 distance distanceSensor = distance(PORT5);
-touchled TouchLED1 = touchled(PORT10);
+touchled touchLEDSensor = touchled(PORT10);
 optical opticalSensor = optical(PORT1);
 
 bumper Bumper1 = bumper(PORT11);
@@ -120,7 +121,7 @@ double bufferAverage(void) {
   return total / count;
 }
 
-void updateWallDetection(double avg) {
+bool updateWallDetection(double avg) {
   static bool wallDetected;
   if (wallDetected) {
     if (avg > WALL_CLEAR_MM)
@@ -129,77 +130,83 @@ void updateWallDetection(double avg) {
     if (avg < WALL_SET_MM)
       wallDetected = true;
   }
+  return wallDetected;
 }
-static RobotState gState = STATE_INIT;
+static RobotState gState = STATE_COLOR_CAL;
 static Heading gHeading = NORTH;
 static Heading gNextDir = NORTH;
 static bool gWallAhead = false;
+TileColor gtileColor;
 
 void hitWall(Action wall) {
-  // recovery script for hitting wall
-  directionType dir1, dir2;
-  int Tries = 0;
-  double reading = distanceSensor.objectDistance(mm);
-  double prevReading = reading;
+  //   // recovery script for hitting wall
+  //   directionType dir1, dir2;
+  //   int Tries = 0;
+  //   double reading = distanceSensor.objectDistance(mm);
+  //   double prevReading = reading;
 
-  switch (wall) {
-  case LEFT:
-    dir1 = left;
-    dir2 = right;
-    break;
-  case RIGHT:
-    dir1 = right;
-    dir2 = left;
-    break;
-  default:
-    gState = STATE_ERROR;
-    return;
-  }
+  //   switch (wall) {
+  //   case LEFT:
+  //     dir1 = left;
+  //     dir2 = right;
+  //     break;
+  //   case RIGHT:
+  //     dir1 = right;Brain.Screen.setCursor(1, 1);
+  //     dir2 = left;
+  //     break;
+  //   default:
+  //     gState = STATE_ERROR;
+  //     return;
+  //   }
 
-  while (Tries < 5) {
-    Drivetrain.Turnfor(dir1, 90, 20,
-                       false); // slow turn to gather wall measurements
+  //   while (Tries < 5) {
+  //     Drivetrain.Turnfor(dir1, 90, deg, 20,
+  //                        percent, false); // slow turn to gather wall
+  //                        measurements
 
-  cali_wiggle:
-    for (int i = 0; i < WALL_READINGS; i++) {
-      prevReading = reading;
-      reading = distanceSensor.objectDistance(mm);
-      wait(10, msec);
+  //   cali_wiggle:
+  //     for (int i = 0; i < WALL_READINGS; i++) {
+  //       prevReading = reading;
+  //       reading = distanceSensor.objectDistance(mm);
+  //       wait(10, msec);
 
-      if (reading > prevReading) {
-        Drivetrain.Turnfor(dir2, 45, 20, false); // approximate turn
+  //       if (reading > prevReading) {
+  //         Drivetra % 360.0in.Turnfor(dir2, 45, deg, 20, percent,
+  //                            false); // approximate turn
 
-        for (int j = 0; j < WALL_READINGS; j++) {
-          prevReading = reading;
-          reading = distanceSensor.objectDistance(mm);
-          wait(10, msec);
+  //         for (int j = 0; j < WALL_READINGS; j++) {
+  //           prevReading = reading;
+  //           reading = distanceSensor.objectDistance(mm);
+  //           wait(10, msec);
 
-          if (reading > prevReading + 5) {
-            Tries++;
-            if (Tries >= 5) {
-              gState =
-                  STATE_ERROR; // goes to error state if cannot self-re-orient
-              return;
-            }
-            goto cali_wiggle;
-          } else {
-            Drivetrain.Turnfor(dir2, 90, 40,
-                               true); // reorientation hopefully complete
-            touchLEDSensor.set_brightness(100);
-            touchLEDSensor.setBlink(red, 1, 1);
-            wait(400, msec);
-            gState = STATE_COLOUR_CHECK;
-            return;
-          }
-        }
-      }
-    }
-  }
-  gState = STATE_ERROR; // goes to error state if cannot self-re-orient
+  //           if (reading > prevReading + 5) {
+  //             Tries++;
+  //             if (Tries >= 5) {Brain.Screen.setCursor(1, 1);
+  //               gState =
+  //                   STATE_ERROR; // goes to error state if cannot
+  //                   self-re-orient
+  //               return;
+  //             }
+  //             goto cali_wiggle;
+  //           } else {
+  //             Drivetrain.Turnfor(dir2, 90, deg, 40, percent,
+  //                                true); // reorientation hopefully complete
+  //             touchLEDSensor.set_brightness(100);
+  //             touchLEDSensor.setBlink(red, 1, 1);
+  //             wait(400, msec);
+  //             gState = STATE_COLOUR_CHECK;
+  //             return;
+  //           }
+  //         }
+  //       }Brain.Screen.setCursor(1, 1);
+  //     }
+  //   }
+  //   gState = STATE_ERROR; // goes to error state if cannot self-re-orient
 }
 
 HueValues colorAvrager() {
   double total = 0.0;
+  double values[NUM_SAMPLES];
   for (size_t i = 0; i < NUM_SAMPLES; i++) {
     values[i] = opticalSensor.hue();
     total += values[i];
@@ -209,9 +216,11 @@ HueValues colorAvrager() {
   for (auto val : values) {
     stddev += std::pow(val - mean, 2);
   }
-  stddev = sqrt(stdev / NUM_SAMPLES);
+  stddev = sqrt(stddev / NUM_SAMPLES);
   double stderror = stddev / sqrt(NUM_SAMPLES);
-  HueValues hue = {(mean + stderror) % 360.0, (mean - stderror) % 360.0};
+  HueValues hue = {(mean + 10), (mean - 10)};
+  Brain.Screen.setCursor(2, 1);
+  Brain.Screen.print("%d", stderror);
   return hue;
 }
 
@@ -219,13 +228,13 @@ HueValues colorAvrager() {
 
 void handleInit(void) {
   touchLEDSensor.on(purple);
-  Brain.Screen.clearScreen();
+  //Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("Calibrating...");
 
   brainInertial.calibrate();
   do {
-    wait(WAIT_TIME_MS, msec);
+    wait(WAIT_TIME, msec);
   } while (brainInertial.isCalibrating());
 
   gHeading = NORTH;
@@ -244,6 +253,7 @@ void handleColorCal() {
   touchLEDSensor.on(red);
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("place on red square");
+  wait(WAIT_TIME, msec);
 
   // Hazard
   while (!touchLEDSensor.pressing())
@@ -252,6 +262,7 @@ void handleColorCal() {
   touchLEDSensor.on(green);
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("place on green square");
+  wait(WAIT_TIME, msec);
 
   // Assembly point
   while (!touchLEDSensor.pressing())
@@ -260,6 +271,7 @@ void handleColorCal() {
   touchLEDSensor.on(blue);
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("place on blue square");
+  wait(WAIT_TIME, msec);
 
   // peeps
   while (!touchLEDSensor.pressing())
@@ -268,6 +280,7 @@ void handleColorCal() {
   touchLEDSensor.on(yellow);
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("place on yellow square");
+  wait(WAIT_TIME, msec);
 
   // Cache
   while (!touchLEDSensor.pressing())
@@ -276,13 +289,14 @@ void handleColorCal() {
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("place on white square");
   touchLEDSensor.on(white);
+  wait(WAIT_TIME, msec);
 
   // Start/finish point
   while (!touchLEDSensor.pressing())
     wait(WAIT_TIME, msec);
   // TODO brightness calbration code
 
-  gState = STATE_INIT;
+  gState = STATE_COLOUR_CHECK;
 }
 
 void handleIdle(void) {
@@ -298,15 +312,16 @@ void handleIdle(void) {
 
 void handleColourCheck(void) {
   touchLEDSensor.on(blue);
-  Tile tile = classifyTile(
-      classifyTileColor(opticalSensor.hue(), opticalSensor.brightness()));
+  gtileColor =
+      classifyTileColor(opticalSensor.hue(), opticalSensor.brightness());
 
   Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("Tile: %d", tile);
+  Brain.Screen.print("Tile: %d", gtileColor);
+
 
   // EXTENSION POINT 2: objective handler states branch from here
-  gState = STATE_WALL_CHECK;
+  //gState = STATE_WALL_CHECK;
 }
 
 void handleWallCheck(void) {
@@ -315,7 +330,7 @@ void handleWallCheck(void) {
   // The robot is stationary here, so averaging is valid
   for (int i = 0; i < BUFFER_SIZE; i++) {
     bufferWrite(distanceSensor.objectDistance(mm));
-    wait(READING_DELAY, msec);
+    wait(WAIT_TIME, msec);
   }
   gWallAhead = updateWallDetection(bufferAverage());
 
@@ -323,19 +338,19 @@ void handleWallCheck(void) {
 }
 
 void handleDecide(void) {
-  touchLEDSensor.on(yellow);
-  Action decsion = decide(gWallAhead);
-  switch (decsion) {
-  case LEFT:
-    gNextDir = (Direction)((gHeading - 1) % 4);
-    break;
-  case RIGHT:
-    gNextDir = (Direction)((gHeading + 1) % 4);
-    break;
-  default:
-    gNextDir = gHeading;
-  }
-  gState = STATE_MOVE;
+  // touchLEDSensor.on(yellow);
+  // Action decsion = decide(gWallAhead, gtileColor);
+  // switch (decsion) {
+  // case LEFT:
+  //  gNextDir = (Direction)((gHeading - 1) % 4);
+  // break;
+  // case RIGHT:
+  //  gNextDir = (Direction)((gHeading + 1) % 4);
+  //  break;
+  // default:
+  // gNextDir = gHeading;
+  //}
+  // gState = STATE_MOVE;
 }
 
 void handleMove(void) {
@@ -352,26 +367,26 @@ void handleMove(void) {
   gState = STATE_COLOUR_CHECK;
 }
 void handleRecovery(void) { // recovery
-  Drivetrain.stop();
+  // Drivetrain.stop();
 
-  touchLEDSensor.setBlink(orange, 1, 1);
-  Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("Trying to recover");
-  do {
-    Drivetrain.setDriveVelocity(50, percent);
-    Drivetrain.driveFor(reverse, 150);
-    double d1 = 0;               // distance measurement 1
-    double d2 = 0;               // distance measurement 2
-    distance.objectDistance(d1); // distance to wall1
-    Drivetrain.turnFor(left, 45, 30);
-    distance.objectDistance(d2); // distance to wall2
-    if (d2 > d1) {
-      hitWall(RIGHT); // recovery from wallhit
-    } else {
-      hitWall(LEFT);
-    };
-    wait(2000, msec);
-  }
+  // touchLEDSensor.setBlink(orange, 1, 1);
+  // Brain.Screen.setCursor(1, 1);
+  // Brain.Screen.print("Trying to recover");
+  // do {
+  //   Drivetrain.setDriveVelocity(50, percent);
+  //   Drivetrain.driveFor(reverse, 150);
+  //   double d1 = 0;                          // distance measurement 1
+  //   double d2 = 0;                          // distance measurement 2
+  //   d1 = distanceSensor.objectDistance(mm); // distance to wall1
+  //   Drivetrain.turnFor(left, 45, deg, 30, percent);
+  //   d2 = distanceSensor.objectDistance(mm); // distance to wall2
+  //   if (d2 > d1) {
+  //     hitWall(RIGHT); // recovery from wallhit
+  //   } else {
+  //     hitWall(LEFT);
+  //   };
+  //   wait(2000, msec);
+  // }
 }
 
 void handleError(void) {
@@ -380,7 +395,7 @@ void handleError(void) {
   touchLEDSensor.on(red);
   // I dont like that I am calling for the debug object I made
   Info info = getInfo();
-  Brain.Screen.print("place on center of %i, %i faceing %c" info.x, info.y,
+  Brain.Screen.print("place on center of %i, %i faceing %c", info.x, info.y,
                      info.heading);
   while (!touchLEDSensor.pressing())
     wait(WAIT_TIME, msec);

@@ -1,4 +1,6 @@
-#include "API/API.h"
+#ifdef MICROMOUSE 
+
+#include "./API/API.h"
 #include "navigation.h"
 #include <cstdlib>
 #include <stdio.h>
@@ -98,3 +100,4 @@ int main() {
     free(str);
   }
 }
+#endif

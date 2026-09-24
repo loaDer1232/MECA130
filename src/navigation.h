@@ -1,7 +1,7 @@
 #ifndef NAVIGATION_H
 #define NAVIGATION_H
 
-typedef enum {
+typedef enum Tile {
   TILE_NORMAL,
   TILE_ASSEMBLY,
   TILE_SURVIVOR,
