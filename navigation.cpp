@@ -179,13 +179,14 @@ Info getInfo() {
   case EAST:
     info.heading = 'e';
     break;
-  case SOUTH:
-    info.heading = 's';
-    break;
   case WEST:
     info.heading = 'w';
     break;
+  case SOUTH:
+    info.heading = 's';
+    break;
   }
+  
   switch (maze[x][y].type) {
   case TILE_NORMAL:
     info.color = 'k';
