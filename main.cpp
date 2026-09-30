@@ -37,7 +37,7 @@
 #define HEADING_SOUTH 180
 #define HEADING_WEST 270
 
-#define PI = 3.14159265358979323846
+#define PI 3.14159265358979323846
 
 typedef enum RobotState {
   STATE_INIT,
@@ -62,9 +62,7 @@ TileColor classifyTileColor(double hue, double bright) {
   // if (bright < BRIGHT_LOW) {
   //   return BLACK;
   // }
-  if (hue > redHue.min || hue < redHue.max) {
-    return RED;
-  }
+
   if (hue > greenHue.min && hue < greenHue.max) {
     return GREEN;
   }
@@ -73,6 +71,9 @@ TileColor classifyTileColor(double hue, double bright) {
   }
   if (hue > yellowHue.min && hue < yellowHue.max) {
     return YELLOW;
+  }
+  if (hue > redHue.min || hue < redHue.max) {
+    return RED;
   }
   return WHITE;
 }
@@ -236,7 +237,7 @@ void handleColorCal() {
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("place on black square");
   Brain.Screen.setCursor(2, 1);
-  Brain.Screen.print("hue: %f", hue);
+  // Brain.Screen.print("hue: %f", hue.max);
 
   // Normal floor
   while (!touchLEDSensor.pressing())
@@ -245,8 +246,8 @@ void handleColorCal() {
   touchLEDSensor.on(red);
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("place on red square");
-  Brain.Screen.setCursor(2, 1);
-  Brain.Screen.print("hue: %f", hue);
+  Brain.Screen.setCursor(3, 1);
+  // Brain.Screen.print("hue: %f", hue);
   wait(WAIT_TIME, msec);
 
   // Hazard
@@ -256,8 +257,8 @@ void handleColorCal() {
   touchLEDSensor.on(green);
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("place on green square");
-  Brain.Screen.setCursor(2, 1);
-  Brain.Screen.print("hue: %f", hue);
+  Brain.Screen.setCursor(4, 1);
+  // Brain.Screen.print("hue: %f", hue);
   wait(WAIT_TIME, msec);
 
   // Assembly point
@@ -267,8 +268,8 @@ void handleColorCal() {
   touchLEDSensor.on(blue);
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("place on blue square");
-  Brain.Screen.setCursor(2, 1);
-  Brain.Screen.print("hue: %f", hue);
+  Brain.Screen.setCursor(5, 1);
+  // Brain.Screen.print("redhue: %f", redHue.max);
   wait(WAIT_TIME, msec);
 
   // peeps
@@ -278,8 +279,8 @@ void handleColorCal() {
   touchLEDSensor.on(yellow);
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("place on yellow square");
-  Brain.Screen.setCursor(2, 1);
-  Brain.Screen.print("hue: %f", hue);
+  Brain.Screen.setCursor(6, 1);
+  // Brain.Screen.print("blueHue: %f", hue);
   wait(WAIT_TIME, msec);
 
   // Cache
@@ -289,7 +290,7 @@ void handleColorCal() {
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("place on white square");
   Brain.Screen.setCursor(2, 1);
-  Brain.Screen.print("hue: %f", hue);
+  // Brain.Screen.print("hue: %f", hue);
   touchLEDSensor.on(white);
   wait(WAIT_TIME, msec);
 
@@ -321,11 +322,7 @@ void handleColourCheck(void) {
   Brain.Screen.print("Tile: %d", gtileColor);
 
   // EXTENSION POINT 2: objective handler states branch from here
-<<<<<<< HEAD
-  //gState = STATE_WALL_CHECK;                                                            //TEMP LOOP
-=======
-  // gState = STATE_WALL_CHECK;
->>>>>>> 49af5c32fad6248d1c067f634eaea95230175e89
+  gState = STATE_WALL_CHECK;
 }
 
 void handleWallCheck(void) {
@@ -342,19 +339,21 @@ void handleWallCheck(void) {
 }
 
 void handleDecide(void) {
-  // touchLEDSensor.on(yellow);
-  // Action decsion = decide(gWallAhead, gtileColor);
-  // switch (decsion) {
-  // case LEFT:
-  //  gNextDir = (Direction)((gHeading - 1) % 4);
-  // break;
-  // case RIGHT:
-  //  gNextDir = (Direction)((gHeading + 1) % 4);
-  //  break;
-  // default:
-  // gNextDir = gHeading;
-  //}
-  // gState = STATE_MOVE;
+  touchLEDSensor.on(yellow);
+  Action decsion = decide(gWallAhead, gtileColor);
+  switch (decsion) {
+  case LEFT:
+    gNextDir = static_cast<Heading>((gHeading - 1) % 4);
+    break;
+  case RIGHT:
+    gNextDir = static_cast<Heading>((gHeading + 1) % 4);
+    break;
+  case IDLE:
+    return;
+  default:
+    gNextDir = gHeading;
+  }
+  gState = STATE_MOVE;
 }
 
 void handleMove(void) {
@@ -363,36 +362,15 @@ void handleMove(void) {
   if (gNextDir != gHeading) {
     Drivetrain.turnToHeading((int)gNextDir * QUARTER_TURN, degrees);
     gHeading = gNextDir;
+  } else {
+    Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
   }
-
-  Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
-
   // EXTENSION POINT 3: collision detection goes here
   gState = STATE_COLOUR_CHECK;
 }
 void handleRecovery(void) { // recovery
   // Drivetrain.stop();
 
-<<<<<<< HEAD
-  touchLEDSensor.setBlink(orange, 1, 1);
-  Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("Trying to recover");
-  do {
-    Drivetrain.setDriveVelocity(50, percent);
-    Drivetrain.driveFor(reverse, 150);
-    double d1 = 0;               // distance measurement 1
-    double d2 = 0;               // distance measurement 2
-    distance.objectDistance(d1); // distance to wall1
-    Drivetrain.turnFor(left, 45, 30);
-    distance.objectDistance(d2); // distance to wall2
-    if (d2 > d1) {
-      hitWall(RIGHT);           // recovery from wallhit
-    } else {
-      hitWall(LEFT);
-    };
-    wait(WAIT_TIME, msec);
-  }
-=======
   // touchLEDSensor.setBlink(orange, 1, 1);
   // Brain.Screen.setCursor(1, 1);
   // Brain.Screen.print("Trying to recover");
@@ -411,7 +389,6 @@ void handleRecovery(void) { // recovery
   //   };
   //   wait(2000, msec);
   // }
->>>>>>> 49af5c32fad6248d1c067f634eaea95230175e89
 }
 
 void handleError(void) {
@@ -464,6 +441,7 @@ void runStateMachine(void) {
 }
 
 int main() {
+  opticalSensor.setLight(ledState::on);
   while (1) {
     runStateMachine();
     wait(LOOP_DELAY, msec);

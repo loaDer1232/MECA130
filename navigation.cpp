@@ -80,17 +80,18 @@ void init() {
   }
 }
 
-void mapCell(bool wallFront, TileColor color, Cell *cell) {
+Action mapCell(bool wallFront, TileColor color, Cell *cell) {
   static int loop = 0;
   loop = (loop + 1) % 4;
-  if ((loop >= 3) && (cell->type == TILE_UNKNOWN)) {
+  if ((loop <= 3) && (cell->type == TILE_UNKNOWN)) {
     cell->x = x;
     cell->y = y;
     updateWall(cell, wallFront);
     updateHeading(RIGHT);
-
+    return RIGHT;
   }
   cell->type = classifyTile(color);
+  return IDLE;
 }
 
 Action decide(bool wallFront, TileColor color) {
@@ -99,7 +100,7 @@ Action decide(bool wallFront, TileColor color) {
   // TODO implement navigation
   init();
   if (currentCell->type == TILE_UNKNOWN) {
-    mapCell(wallFront, color, currentCell);
+    return mapCell(wallFront, color, currentCell);
   }
 
   for (int i = 0; i < 4; i++) {
@@ -143,7 +144,7 @@ Action decide(bool wallFront, TileColor color) {
     }
     nextCell = static_cast<Cell *>(pop(&edgeNodes));
     // TODO find best path from current currentCell to next cell
-    return RIGHT;
+    return IDLE;
   }
   return IDLE;
 }
