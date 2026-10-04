@@ -20,21 +20,20 @@ typedef struct Cell {
   Tile type = TILE_UNKNOWN;
   bool wallNorth;
   bool wallEast;
-  bool wallSouth; 
+  bool wallSouth;
   bool wallWest;
   int x;
   int y;
 } Cell;
 
 typedef struct Info {
-  int x;
-  int y;
   int survivorsFound;
   int cachesFound;
   int hazardsFound;
   char heading;
   char color;
   Cell cell;
+  Cell target;
 } Info;
 
 Action decide(bool wallFront, TileColor color);
