@@ -58,25 +58,25 @@ typedef struct {
 
 HueValues redHue, greenHue, blueHue, yellowHue;
 
-TileColor classifyTileColor(double hue, double bright) {
-  // if (bright < BRIGHT_LOW) {
-  //   return BLACK;
-  // }
+// TileColor classifyTileColor(double hue, double bright) {
+//   // if (bright < BRIGHT_LOW) {
+//   //   return BLACK;
+//   // }
 
-  if (hue > greenHue.min && hue < greenHue.max) {
-    return GREEN;
-  }
-  if (hue > blueHue.min && hue < blueHue.max) {
-    return BLUE;
-  }
-  if (hue > yellowHue.min && hue < yellowHue.max) {
-    return YELLOW;
-  }
-  if (hue > redHue.min || hue < redHue.max) {
-    return RED;
-  }
-  return WHITE;
-}
+//   if (hue > greenHue.min && hue < greenHue.max) {
+//     return GREEN;
+//   }
+//   if (hue > blueHue.min && hue < blueHue.max) {
+//     return BLUE;
+//   }
+//   if (hue > yellowHue.min && hue < yellowHue.max) {
+//     return YELLOW;
+//   }
+//   if (hue > redHue.min || hue < redHue.max) {
+//     return RED;
+//   }
+//   return WHITE;
+// }
 
 using namespace vex;
 
@@ -198,21 +198,83 @@ void hitWall(Action wall) {
   //   }
   //   gState = STATE_ERROR; // goes to error state if cannot self-re-orient
 }
-
-HueValues colorAvrager() {
-  double sumSin = 0.0, sumCos = 0.0;
+HueCalibration calibrateTileHue(Colour c) {
+  (void)c;  // the band is found from the samples, not assumed from the name
+  double samples[NUM_SAMPLES];
   for (int i = 0; i < NUM_SAMPLES; i++) {
-    double rad = opticalSensor.hue() * PI / 180.0;
-    sumSin += sin(rad);
-    sumCos += cos(rad);
-    wait(20, msec);
+    samples[i] = opticalSensor.hue();
   }
-  double mean = atan2(sumSin, sumCos) * 180.0 / PI;
-  if (mean < 0)
-    mean += 360.0;
 
-  HueValues hue = {fmod(mean + 10, 360.0), fmod(mean - 10 + 360.0, 360.0)};
-  return hue;
+  double center = circularMean(samples, NUM_SAMPLES);
+
+  // Tolerance is the widest spread seen, plus a margin for lighting drift,
+  // floored so noise cannot shrink it and capped so bands cannot merge.
+  double spread = 0.0;
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    double d = hueDistance(samples[i], center);
+    if (d > spread) spread = d;
+  }
+  double tolerance = spread + 10.0;
+  if (tolerance < 10.0) tolerance = 10.0;
+  if (tolerance > 45.0) tolerance = 45.0;
+
+  return HueCalibration{center, tolerance};
+}
+
+// The black equivalent: average the brightness the same way, then add a margin
+// so lighting drift cannot push the real black tile back over the line. The
+// clamp is what stops a misplaced sample from setting a threshold that swallows
+// the whole course as BLACK.
+HueCalibration calibrateBlackBrightness(void) {
+  double sum = 0.0;
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    sum += opticalSensor.brightness();
+  }
+  double threshold = sum / (double)NUM_SAMPLES + BLACK_MARGIN;
+  if (threshold < BLACK_THRESH_MIN) threshold = BLACK_THRESH_MIN;
+  if (threshold > BLACK_THRESH_MAX) threshold = BLACK_THRESH_MAX;
+  return HueCalibration{threshold, BLACK_MARGIN};
+}
+
+static const Colour gCalOrder[] = {
+    COLOUR_BLACK, COLOUR_RED,   COLOUR_GREEN,
+    COLOUR_BLUE,  COLOUR_YELLOW, COLOUR_WHITE};
+static const int CAL_STEPS = (int)(sizeof(gCalOrder) / sizeof(gCalOrder[0]));
+
+static const char *colourName(Colour c) {
+  switch (c) {
+  case COLOUR_RED:    return "RED";
+  case COLOUR_GREEN:  return "GREEN";
+  case COLOUR_BLUE:   return "BLUE";
+  case COLOUR_YELLOW: return "YELLOW";
+  case COLOUR_WHITE:  return "WHITE";
+  case COLOUR_BLACK:  return "BLACK";
+  default:            return "?";
+  }
+}
+
+static const char *sensorColorName(vex::color c) {
+  if (c == vex::red) return "RED";
+  if (c == vex::green) return "GREEN";
+  if (c == vex::blue) return "BLUE";
+  if (c == vex::yellow) return "YELLOW";
+  if (c == vex::white) return "WHITE";
+  if (c == vex::black) return "BLACK";
+  if (c == vex::purple) return "PURPLE";
+  if (c == vex::orange) return "ORANGE";
+  return "BLACK";
+}
+
+static colorType calLedColour(Colour c) {
+  switch (c) {
+  case COLOUR_RED:    return vex::red;
+  case COLOUR_GREEN:  return vex::green;
+  case COLOUR_BLUE:   return vex::blue;
+  case COLOUR_YELLOW: return vex::yellow;
+  case COLOUR_WHITE:  return vex::white;
+  case COLOUR_BLACK:  return vex::black;
+  default:            return vex::white;
+  }
 }
 
 // --- Handlers ---
@@ -231,74 +293,91 @@ void handleInit(void) {
   gHeading = NORTH;
   gState = STATE_IDLE;
 }
+// go through each tile once, save its custom hue/brightness range, and skip any tile
+// that should be left at the sensor's default value. The wrapped hue logic is
+// retained so red's 0/360 seam does not split the calibration band. 
+void handleColorCal(void) {
+  for (int i = 0; i < COLOUR_COUNT; i++) {
+    gCal[i].center = 0.0;
+    gCal[i].tolerance = 0.0;
+  }
 
-void handleColorCal() {
-  touchLEDSensor.on(black); // corridor
+  for (int step = 0; step < CAL_STEPS; step++) {
+    Colour target = gCalOrder[step];
+    bool done = false;
+    const char *status = "CHECK";
+
+    // Bumper held down at the first step: skip the whole calibration.
+    if (target == COLOUR_BLACK && bumpSensor.pressing()) {
+      Brain.Screen.clearScreen();
+      Brain.Screen.setCursor(1, 1);
+      Brain.Screen.print("Skip calibration");
+      break;
+    }
+
+    touchLEDSensor.on(calLedColour(target));
+
+    while (!done) {
+      double hue = opticalSensor.hue();
+      double bright = opticalSensor.brightness();
+      TileColor predicted = classifyTileColor(hue, bright);
+
+      Brain.Screen.clearScreen();
+      Brain.Screen.setCursor(1, 1);
+      Brain.Screen.print("CAL %s %s", colourName(target), status);
+      Brain.Screen.setCursor(2, 1);
+      Brain.Screen.print("H:%3d B:%3d", (int)hue, (int)bright);
+      Brain.Screen.setCursor(3, 1);
+      Brain.Screen.print("sensor=%s", sensorColorName(opticalSensor.color()));
+      Brain.Screen.setCursor(4, 1);
+      Brain.Screen.print("LED=SAVE  BUMP=SKIP");
+      Brain.Screen.setCursor(5, 1);
+      Brain.Screen.print("Tile=%s", tileColorName(predicted));
+
+      if (bumpSensor.pressing()) {
+        status = "SKIP";
+        done = true;
+      } else if (touchLEDSensor.pressing()) {
+        if (target == COLOUR_BLACK) {
+          gCal[target] = calibrateBlackBrightness();
+        } else {
+          gCal[target] = calibrateTileHue(target);
+        }
+        status = "SAVED";
+        done = true;
+      }
+
+      wait(WAIT_TIME_MS, msec);
+    }
+
+    Brain.Screen.clearScreen();
+    Brain.Screen.setCursor(1, 1);
+    Brain.Screen.print("CAL %s %s", colourName(target), status);
+    Brain.Screen.setCursor(4, 1);
+    Brain.Screen.print("release to continue");
+    touchLEDSensor.setBlink(calLedColour(target), 0.15, 0.15);
+    wait(900, msec);
+    touchLEDSensor.setBrightness(0);
+  }
+
+  Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("place on black square");
+  Brain.Screen.print("Calibration done");
   Brain.Screen.setCursor(2, 1);
-  // Brain.Screen.print("hue: %f", hue.max);
-
-  // Normal floor
-  while (!touchLEDSensor.pressing())
-    wait(WAIT_TIME, msec);
-  // TODO black calbration
-  touchLEDSensor.on(red);
-  Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("place on red square");
+  Brain.Screen.print("On start tile, facing start");
   Brain.Screen.setCursor(3, 1);
-  // Brain.Screen.print("hue: %f", hue);
-  wait(WAIT_TIME, msec);
-
-  // Hazard
-  while (!touchLEDSensor.pressing())
-    wait(WAIT_TIME, msec);
-  redHue = colorAvrager();
-  touchLEDSensor.on(green);
-  Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("place on green square");
-  Brain.Screen.setCursor(4, 1);
-  // Brain.Screen.print("hue: %f", hue);
-  wait(WAIT_TIME, msec);
-
-  // Assembly point
-  while (!touchLEDSensor.pressing())
-    wait(WAIT_TIME, msec);
-  greenHue = colorAvrager();
-  touchLEDSensor.on(blue);
-  Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("place on blue square");
-  Brain.Screen.setCursor(5, 1);
-  // Brain.Screen.print("redhue: %f", redHue.max);
-  wait(WAIT_TIME, msec);
-
-  // peeps
-  while (!touchLEDSensor.pressing())
-    wait(WAIT_TIME, msec);
-  blueHue = colorAvrager();
-  touchLEDSensor.on(yellow);
-  Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("place on yellow square");
-  Brain.Screen.setCursor(6, 1);
-  // Brain.Screen.print("blueHue: %f", hue);
-  wait(WAIT_TIME, msec);
-
-  // Cache
-  while (!touchLEDSensor.pressing())
-    wait(WAIT_TIME, msec);
-  yellowHue = colorAvrager();
-  Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("place on white square");
-  Brain.Screen.setCursor(2, 1);
-  // Brain.Screen.print("hue: %f", hue);
+  Brain.Screen.print("Press to explore");
   touchLEDSensor.on(white);
-  wait(WAIT_TIME, msec);
 
-  // Start/finish point
-  while (!touchLEDSensor.pressing())
-    wait(WAIT_TIME, msec);
+  while (!touchLEDSensor.pressing()) {
+    wait(WAIT_TIME_MS, msec);
+  }
+  touchLEDSensor.setBrightness(0);
+}
 
-  gState = STATE_COLOUR_CHECK;
+// ---- Handlers ----
+static bool resetButtonPressed(void) {
+  return touchLEDSensor.pressing() || bumpSensor.pressing();
 }
 
 void handleIdle(void) {
