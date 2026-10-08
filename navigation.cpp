@@ -288,6 +288,10 @@ Tile classifyTile(TileColor color) {
   }
 }
 
+Heading getHeading(){
+  return heading;
+}
+
 Info getInfo() {
   Info info;
   info.survivorsFound = survivorsFound;

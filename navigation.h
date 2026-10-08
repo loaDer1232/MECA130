@@ -40,5 +40,6 @@ Action decide(bool wallFront, TileColor color);
 Tile classifyTile(TileColor color);
 
 Info getInfo();
+Heading getHeading();
 
 #endif

@@ -579,15 +579,15 @@ void handleDecide(void) {
   Action decsion = decide(gWallAhead, gtileColor);
   switch (decsion) {
   case LEFT:
-    gNextDir = -1;
+    gNextDir = static_cast<Heading>((getHeading()-1)%4);
     break;
   case RIGHT:
-    gNextDir = 1;
+    gNextDir = static_cast<Heading>((getHeading()+1)%4);
     break;
   case IDLE:
     return;
   default:
-    gNextDir = 0;
+    gNextDir = getHeading();
   }
   gState = STATE_MOVE;
 }
@@ -595,10 +595,10 @@ void handleDecide(void) {
 void handleMove(void) {
   touchLEDSensor.on(green);
 
-  if (gNextDir) {
-    Drivetrain.turnToRotation(gNextDir * QUARTER_TURN, degrees);
-    gNextDir=0;
+  if (gNextDir != getHeading()) {
+    Drivetrain.turnToHeading((int)gNextDir * QUARTER_TURN, degrees);
   } else {
+    gNextDir = getHeading();
     Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
   }
   // EXTENSION POINT 3: collision detection goes here
