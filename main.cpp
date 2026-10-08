@@ -162,6 +162,7 @@ void handleColorCal(void) {
       Brain.Screen.clearScreen();
       Brain.Screen.setCursor(1, 1);
       Brain.Screen.print("Skip calibration");
+      gState = STATE_IDLE;
       break;
     }
 
@@ -179,8 +180,13 @@ void handleColorCal(void) {
       Brain.Screen.print("H:%3d B:%3d", (int)hue, (int)bright);
       Brain.Screen.setCursor(3, 1);
       Brain.Screen.print("sensor=%s", sensorColorName(opticalSensor.color()));
+      if (target == COLOR_BLACK) {                                                  //seperate msg for skipping calibration entirely
+        Brain.Screen.setCursor(4, 1);
+        Brain.Screen.print("LED=SAVE BUMP=SKIPCAL");
+      }else {
       Brain.Screen.setCursor(4, 1);
       Brain.Screen.print("LED=SAVE  BUMP=SKIP");
+      }
       Brain.Screen.setCursor(5, 1);
       Brain.Screen.print("Tile=%s", tileColorName(predicted));
 
