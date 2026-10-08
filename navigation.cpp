@@ -192,35 +192,6 @@ static void planPath(Cell *from, Cell *to) {
   }
 }
 
-Cell *expolering(Cell *currentCell) {
-  // finds valid edgeNodes
-  for (int i = 0; i < 4; i++) {
-    Heading testHeading = static_cast<Heading>(i);
-    Cell *childCell = findNeighbor(currentCell, testHeading);
-    // IF childCell is NOT in visitedNodes
-    // push childCell -> visitedNodes & edgeNodes
-    if (childCell && !isVisited(childCell)) {
-      push(&visitedNodes, childCell);
-      push(&edgeNodes, childCell);
-    }
-  }
-
-  // only choose a new target once the previous plan has finished
-  while (isEmpty(&actions)) {
-    targetCell = nullptr;
-    while (edgeNodes.size > 0) {
-      Cell *possibleCell = static_cast<Cell *>(pop(&edgeNodes));
-      if (possibleCell != currentCell && possibleCell->type != TILE_HAZARD) {
-        targetCell = possibleCell;
-        break;
-      }
-    }
-    if (!targetCell) // no more cells to explore
-      return nullptr;
-  }
-  return targetCell;
-}
-
 Action mapCell(bool wallFront, TileColor color, Cell *cell) {
   static int loop = 0;
   if (loop < 4) {
@@ -262,20 +233,33 @@ Action decide(bool wallFront, TileColor color) {
       return mapAction;
     // returning IDLE. IDLE from decide() now only ever means "finished".
   }
-  if (currentCell->type == TILE_SURVIVOR && assmeblyTile.found) {
-    targetCell = assmeblyTile.cell;
+    // finds valid edgeNodes
+  for (int i = 0; i < 4; i++) {
+    Heading testHeading = static_cast<Heading>(i);
+    Cell *childCell = findNeighbor(currentCell, testHeading);
+    // IF childCell is NOT in visitedNodes
+    // push childCell -> visitedNodes & edgeNodes
+    if (childCell && !isVisited(childCell)) {
+      push(&visitedNodes, childCell);
+      push(&edgeNodes, childCell);
+    }
   }
-  if (currentCell->type == TILE_HAZARD) {
-    updateHeading(RIGHT);
-    updateHeading(RIGHT);
-    updateXY();
-    updateHeading(RIGHT);
-    updateHeading(RIGHT);
-    return REVERSE;
-  } else {
-    targetCell = expolering(currentCell);
+
+  // only choose a new target once the previous plan has finished
+  while (isEmpty(&actions)) {
+    targetCell = nullptr;
+    while (edgeNodes.size > 0) {
+      Cell *possibleCell = static_cast<Cell *>(pop(&edgeNodes));
+      if (possibleCell != currentCell && possibleCell->type != TILE_HAZARD) {
+        targetCell = possibleCell;
+        break;
+      }
+    }
+    if (!targetCell) // no more cells to explore
+      return nullptr;
   }
-  // Navigate from current to target cell
+}
+
   planPath(currentCell, targetCell);
 
   Action finalAction = *static_cast<Action *>(dequeue(&actions));
