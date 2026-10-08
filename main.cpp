@@ -8,6 +8,7 @@
 /*----------------------------------------------------------------------------*/
 #include "navigation.h"
 #include "vex.h"
+#include "ColorCalibration.h"
 #include <cmath>
 
 #define LOOP_DELAY 200
@@ -19,7 +20,7 @@
 #define SCREEN_RESET_Y 1
 #define NUM_SAMPLES 10
 
-#define BUFFER_SIZE 1
+#define BUFFER_SIZE 3
 
 #define QUARTER_TURN 90 // task 4
 #define FULL_CIRCLE 360
@@ -51,17 +52,6 @@
 #define COLOR_CALIBRATED_COUNT CAL_CALIBRATED_COUNT
 #define COLOR_COUNT CAL_COUNT
 
-typedef enum {
-  CAL_RED = 0,
-  CAL_GREEN,
-  CAL_BLUE,
-  CAL_YELLOW,
-  CAL_WHITE,
-  CAL_BLACK,
-  CAL_CALIBRATED_COUNT = CAL_BLACK,
-  CAL_COUNT = CAL_CALIBRATED_COUNT + 1
-} CalColor;
-
 typedef enum RobotState {
   STATE_INIT,
   STATE_COLOR_CAL,
@@ -72,87 +62,6 @@ typedef enum RobotState {
   STATE_MOVE,
   STATE_ERROR,
 } RobotState;
-
-typedef struct HueCalibration {
-  double center;    // mean hue of the tile, kept in [0, 360)
-  double tolerance; // half-width of the accepted band, in degrees
-} HueCalibration;
-
-static constexpr double PI = 3.14159265358979; // VEXcode often lacks M_PI
-
-TileColor indexToTileColor(CalColor c) {
-  switch (c) {
-  case COLOR_RED :
-    return RED;
-  case COLOR_GREEN:
-    return GREEN;
-  case COLOR_BLUE:
-    return BLUE;
-  case COLOR_YELLOW:
-    return YELLOW;
-  case COLOR_WHITE:
-    return WHITE;
-  case COLOR_BLACK:
-    return BLACK;
-  default:
-    return WHITE; // unreachable
-  }
-}
-
-HueCalibration gCal[COLOR_COUNT];
-
-
-double wrapHue(double h) { // hue is cyclic, so fold any angle into [0, 360)
-  h = fmod(h, 360.0);
-  if (h < 0.0)
-    h += 360.0;
-  return h;
-}
-
-// Shortest angular distance between two hues, always in [0, 180]. This is the
-// wraparound case: 355 and 5 are 350 apart the long way, so the answer is 10.
-double hueDistance(double a, double b) {
-  double d = fabs(wrapHue(a) - wrapHue(b));
-  return d > 180.0 ? 360.0 - d : d;
-}
-
-// Average hues as vectors on a unit circle. A plain mean of {356, 358, 2, 4}
-// returns 180 (green) because the 0/360 seam splits the samples.
-double circularMean(const double vals[], int n) {
-  double sX = 0.0, sY = 0.0;
-  for (int i = 0; i < n; i++) {
-    double rad = wrapHue(vals[i]) * PI / 180.0;
-    sX += cos(rad);
-    sY += sin(rad);
-  }
-  return wrapHue(atan2(sY, sX) * 180.0 / PI);
-}
-
-static const char *tileColorName(TileColor c) {
-  switch (c) {
-  case RED:
-    return "RED";
-  case GREEN:
-    return "GREEN";
-  case BLUE:
-    return "BLUE";
-  case YELLOW:
-    return "YELLOW";
-  case WHITE:
-    return "WHITE";
-  case BLACK:
-    return "BLACK";
-  default:
-    return "?";
-  }
-}
-// Black has no hue band, so it is decided purely on brightness. The threshold
-// comes from the black calibration step; BRIGHT_LOW is the fallback for when
-// that step was skipped.
-static double blackThreshold() {
-  return (gCal[COLOR_BLACK].tolerance > 0.0) ? gCal[COLOR_BLACK].center
-                                             : (double)BRIGHT_LOW;
-}
 
 // Nearest calibrated centre, accepted only if it is inside that color's band.
 // No hue color is special-cased, so no hand-written hue range can be wrong.
@@ -180,34 +89,7 @@ TileColor classifyTileColor(double hue, double bright) {
 
 using namespace vex;
 
-typedef struct {
-  double max;
-  double min;
-} HueValues;
 
-HueValues redHue, greenHue, blueHue, yellowHue;
-
-// TileColor classifyTileColor(double hue, double bright) {
-//   // if (bright < BRIGHT_LOW) {
-//   //   return BLACK;
-//   // }
-
-//   if (hue > greenHue.min && hue < greenHue.max) {
-//     return GREEN;
-//   }
-//   if (hue > blueHue.min && hue < blueHue.max) {
-//     return BLUE;
-//   }
-//   if (hue > yellowHue.min && hue < yellowHue.max) {
-//     return YELLOW;
-//   }
-//   if (hue > redHue.min || hue < redHue.max) {
-//     return RED;
-//   }
-//   return WHITE;
-// }
-
-using namespace vex;
 
 vex::brain Brain;
 
@@ -262,175 +144,11 @@ static int gNextDir = 0;
 static bool gWallAhead = false;
 TileColor gtileColor;
 
-void hitWall(Action wall) {
-  //   // recovery script for hitting wall
-  //   directionType dir1, dir2;
-  //   int Tries = 0;
-  //   double reading = distanceSensor.objectDistance(mm);
-  //   double prevReading = reading;
 
-  //   switch (wall) {
-  //   case LEFT:
-  //     dir1 = left;
-  //     dir2 = right;
-  //     break;
-  //   case RIGHT:
-  //     dir1 = right;Brain.Screen.setCursor(1, 1);
-  //     dir2 = left;
-  //     break;
-  //   default:
-  //     gState = STATE_ERROR;
-  //     return;
-  //   }
-
-  //   while (Tries < 5) {
-  //     Drivetrain.Turnfor(dir1, 90, deg, 20,
-  //                        percent, false); // slow turn to gather wall
-  //                        measurements
-
-  //   cali_wiggle:
-  //     for (int i = 0; i < WALL_READINGS; i++) {
-  //       prevReading = reading;
-  //       reading = distanceSensor.objectDistance(mm);
-  //       wait(10, msec);
-
-  //       if (reading > prevReading) {
-  //         Drivetra % 360.0in.Turnfor(dir2, 45, deg, 20, percent,
-  //                            false); // approximate turn
-
-  //         for (int j = 0; j < WALL_READINGS; j++) {
-  //           prevReading = reading;
-  //           reading = distanceSensor.objectDistance(mm);
-  //           wait(10, msec);
-
-  //           if (reading > prevReading + 5) {
-  //             Tries++;
-  //             if (Tries >= 5) {Brain.Screen.setCursor(1, 1);
-  //               gState =
-  //                   STATE_ERROR; // goes to error state if cannot
-  //                   self-re-orient
-  //               return;
-  //             }
-  //             goto cali_wiggle;
-  //           } else {
-  //             Drivetrain.Turnfor(dir2, 90, deg, 40, percent,
-  //                                true); // reorientation hopefully complete
-  //             touchLEDSensor.set_brightness(100);
-  //             touchLEDSensor.setBlink(red, 1, 1);
-  //             wait(400, msec);
-  //             gState = STATE_COLOR_CHECK;
-  //             return;
-  //           }
-  //         }
-  //       }Brain.Screen.setCursor(1, 1);
-  //     }
-  //   }
-  //   gState = STATE_ERROR; // goes to error state if cannot self-re-orient
-}
-HueCalibration calibrateTileHue(color c) {
-  (void)c; // the band is found from the samples, not assumed from the name
-  double samples[NUM_SAMPLES];
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-    samples[i] = opticalSensor.hue();
-  }
-
-  double center = circularMean(samples, NUM_SAMPLES);
-
-  // Tolerance is the widest spread seen, plus a margin for lighting drift,
-  // floored so noise cannot shrink it and capped so bands cannot merge.
-  double spread = 0.0;
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-    double d = hueDistance(samples[i], center);
-    if (d > spread)
-      spread = d;
-  }
-  double tolerance = spread + 10.0;
-  if (tolerance < 10.0)
-    tolerance = 10.0;
-  if (tolerance > 45.0)
-    tolerance = 45.0;
-
-  return HueCalibration{center, tolerance};
-}
-
-// The black equivalent: average the brightness the same way, then add a margin
-// so lighting drift cannot push the real black tile back over the line. The
-// clamp is what stops a misplaced sample from setting a threshold that swallows
-// the whole course as BLACK.
-HueCalibration calibrateBlackBrightness(void) {
-  double sum = 0.0;
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-    sum += opticalSensor.brightness();
-  }
-  double threshold = sum / (double)NUM_SAMPLES + BLACK_MARGIN;
-  if (threshold < BLACK_THRESH_MIN)
-    threshold = BLACK_THRESH_MIN;
-  if (threshold > BLACK_THRESH_MAX)
-    threshold = BLACK_THRESH_MAX;
-  return HueCalibration{threshold, BLACK_MARGIN};
-}
-
-static const color gCalOrder[] = {COLOR_BLACK, COLOR_RED,    COLOR_GREEN,
+static const CalColor gCalOrder[] = {COLOR_BLACK, COLOR_RED,    COLOR_GREEN,
                                   COLOR_BLUE,  COLOR_YELLOW, COLOR_WHITE};
 static const int CAL_STEPS = (int)(sizeof(gCalOrder) / sizeof(gCalOrder[0]));
 
-static const char *colorName(color c) {
-  switch (c) {
-  case COLOR_RED:
-    return "RED";
-  case COLOR_GREEN:
-    return "GREEN";
-  case COLOR_BLUE:
-    return "BLUE";
-  case COLOR_YELLOW:
-    return "YELLOW";
-  case COLOR_WHITE:
-    return "WHITE";
-  case COLOR_BLACK:
-    return "BLACK";
-  default:
-    return "?";
-  }
-}
-
-static const char *sensorColorName(vex::color c) {
-  if (c == vex::red)
-    return "RED";
-  if (c == vex::green)
-    return "GREEN";
-  if (c == vex::blue)
-    return "BLUE";
-  if (c == vex::yellow)
-    return "YELLOW";
-  if (c == vex::white)
-    return "WHITE";
-  if (c == vex::black)
-    return "BLACK";
-  if (c == vex::purple)
-    return "PURPLE";
-  if (c == vex::orange)
-    return "ORANGE";
-  return "BLACK";
-}
-
-static color calLedColor(color c) {
-  switch (c) {
-  case COLOR_RED:
-    return vex::red;
-  case COLOR_GREEN:
-    return vex::green;
-  case COLOR_BLUE:
-    return vex::blue;
-  case COLOR_YELLOW:
-    return vex::yellow;
-  case COLOR_WHITE:
-    return vex::white;
-  case COLOR_BLACK:
-    return vex::black;
-  default:
-    return vex::white;
-  }
-}
 
 // --- Handlers ---
 
@@ -458,7 +176,7 @@ void handleColorCal(void) {
   }
 
   for (int step = 0; step < CAL_STEPS; step++) {
-    color target = gCalOrder[step];
+    CalColor target = gCalOrder[step];
     bool done = false;
     const char *status = "CHECK";
 
@@ -579,15 +297,15 @@ void handleDecide(void) {
   Action decsion = decide(gWallAhead, gtileColor);
   switch (decsion) {
   case LEFT:
-    gNextDir = static_cast<Heading>((getHeading()-1)%4);
+    gNextDir = -1;
     break;
   case RIGHT:
-    gNextDir = static_cast<Heading>((getHeading()+1)%4);
+    gNextDir = 1;
     break;
   case IDLE:
     return;
   default:
-    gNextDir = getHeading();
+    gNextDir = 0;
   }
   gState = STATE_MOVE;
 }
@@ -595,10 +313,10 @@ void handleDecide(void) {
 void handleMove(void) {
   touchLEDSensor.on(green);
 
-  if (gNextDir != getHeading()) {
-    Drivetrain.turnToHeading((int)gNextDir * QUARTER_TURN, degrees);
+  if (gNextDir) {
+    Drivetrain.turnToRotation(gNextDir * QUARTER_TURN, degrees);
+    gNextDir=0;
   } else {
-    gNextDir = getHeading();
     Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
   }
   // EXTENSION POINT 3: collision detection goes here
