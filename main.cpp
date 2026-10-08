@@ -15,7 +15,7 @@
 
 #define WALL_SET_MM 300
 #define WALL_CLEAR_MM 320
-#define WAIT_TIME 200
+// #define WAIT_TIME 200        moved to colorcal header
 #define SCREEN_RESET_X 1
 #define SCREEN_RESET_Y 1
 
@@ -37,42 +37,43 @@
 #define HEADING_SOUTH 180
 #define HEADING_WEST 270
 
-typedef enum RobotState {
-  STATE_INIT,
-  STATE_COLOR_CAL,
-  STATE_IDLE,
-  STATE_COLOR_CHECK,
-  STATE_WALL_CHECK,
-  STATE_DECIDE,
-  STATE_MOVE,
-  STATE_ERROR,
-} RobotState;
+// typedef enum RobotState {          moved to header 
+//   STATE_INIT,
+//   STATE_COLOR_CAL,
+//   STATE_IDLE,
+//   STATE_COLOR_CHECK,
+//   STATE_WALL_CHECK,
+//   STATE_DECIDE,
+//   STATE_MOVE,
+//   STATE_ERROR,
+// } RobotState;
 
-// Nearest calibrated centre, accepted only if it is inside that color's band.
-// No hue color is special-cased, so no hand-written hue range can be wrong.
-TileColor classifyTileColor(double hue, double bright) {
-  if (bright < blackThreshold()) {
-    return BLACK; // hue is unreliable on dark surfaces
-  }
-  int bestIdx = 0;
-  double bestDist = hueDistance(hue, gCal[COLOR_RED].center);
-  for (int i = 1; i < COLOR_CALIBRATED_COUNT; i++) {
-    double d = hueDistance(hue, gCal[i].center);
-    if (d < bestDist) {
-      bestDist = d;
-      bestIdx = i;
-    }
-  }
+// // Nearest calibrated centre, accepted only if it is inside that color's band.
+// // No hue color is special-cased, so no hand-written hue range can be wrong.
+// TileColor classifyTileColor(double hue, double bright) {
+//   if (bright < blackThreshold()) {
+//     return BLACK; // hue is unreliable on dark surfaces
+//   }
+//   int bestIdx = 0;
+//   double bestDist = hueDistance(hue, gCal[COLOR_RED].center);
+//   for (int i = 1; i < COLOR_CALIBRATED_COUNT; i++) {
+//     double d = hueDistance(hue, gCal[i].center);
+//     if (d < bestDist) {
+//       bestDist = d;
+//       bestIdx = i;
+//     }
+//   }
 
-  if (bestDist <= gCal[bestIdx].tolerance) {
-    return indexToTileColor((CalColor)bestIdx);
-  }
-  // Outside every calibrated band. Black is already caught above, so white
-  // (the calibrated finish tile) is the only sensible fallback.
-  return WHITE;
-}
+//   if (bestDist <= gCal[bestIdx].tolerance) {
+//     return indexToTileColor((CalColor)bestIdx);
+//   }
+//   // Outside every calibrated band. Black is already caught above, so white
+//   // (the calibrated finish tile) is the only sensible fallback.
+//   return WHITE;
+// }
 
 using namespace vex;
+
 // Smart Vex Device Setup
 vex::brain Brain;
 touchled touchLEDSensor = touchled(PORT10);
@@ -118,15 +119,18 @@ bool updateWallDetection(double avg) {
   }
   return wallDetected;
 }
-static RobotState gState = STATE_COLOR_CAL;
+
+RobotState gState = STATE_COLOR_CAL;       //not static because external
+TileColor gtileColor;
+
 static Heading gHeading = NORTH;
 static int gNextDir = 0;
 static bool gWallAhead = false;
-TileColor gtileColor;
 
-static const CalColor gCalOrder[] = {COLOR_BLACK, COLOR_RED,    COLOR_GREEN,
-                                     COLOR_BLUE,  COLOR_YELLOW, COLOR_WHITE};
-static const int CAL_STEPS = (int)(sizeof(gCalOrder) / sizeof(gCalOrder[0]));
+
+// static const CalColor gCalOrder[] = {COLOR_BLACK, COLOR_RED,    COLOR_GREEN,
+//                                      COLOR_BLUE,  COLOR_YELLOW, COLOR_WHITE};
+// static const int CAL_STEPS = (int)(sizeof(gCalOrder) / sizeof(gCalOrder[0]));       moved to colorcal.cpp
 
 // --- Handlers ---
 
@@ -143,97 +147,8 @@ void handleInit(void) {
   gState = STATE_IDLE;
 }
 
-// go through each tile once, save its custom hue/brightness range, and skip any
-// tile that should be left at the sensor's default value. The wrapped hue logic
-// is retained so red's 0/360 seam does not split the calibration band.
-void handleColorCal(void) {
-  for (int i = 0; i < COLOR_COUNT; i++) {
-    gCal[i].center = 0.0;
-    gCal[i].tolerance = 0.0;
-  }
-
-  for (int step = 0; step < CAL_STEPS; step++) {
-    CalColor target = gCalOrder[step];
-    bool done = false;
-    const char *status = "CHECK";
-
-    // Bumper held down at the first step: skip the whole calibration.
-    if (target == COLOR_BLACK && bumpSensor.pressing()) {
-      Brain.Screen.clearScreen();
-      Brain.Screen.setCursor(1, 1);
-      Brain.Screen.print("Skip calibration");
-      gState = STATE_IDLE;
-      break;
-    }
-
-    touchLEDSensor.on(calLedColor(target));
-
-    while (!done) {
-      double hue = opticalSensor.hue();
-      double bright = opticalSensor.brightness();
-      TileColor predicted = classifyTileColor(hue, bright);
-
-      Brain.Screen.clearScreen();
-      Brain.Screen.setCursor(1, 1);
-      Brain.Screen.print("CAL %s %s", colorName(target), status);
-      Brain.Screen.setCursor(2, 1);
-      Brain.Screen.print("H:%3d B:%3d", (int)hue, (int)bright);
-      Brain.Screen.setCursor(3, 1);
-      Brain.Screen.print("sensor=%s", sensorColorName(opticalSensor.color()));
-      if (target == COLOR_BLACK) {                                                  //seperate msg for skipping calibration entirely
-        Brain.Screen.setCursor(4, 1);
-        Brain.Screen.print("LED=SAVE BUMP=SKIPCAL");
-      }else {
-      Brain.Screen.setCursor(4, 1);
-      Brain.Screen.print("LED=SAVE  BUMP=SKIP");
-      }
-      Brain.Screen.setCursor(5, 1);
-      Brain.Screen.print("Tile=%s", tileColorName(predicted));
-
-      if (bumpSensor.pressing()) {
-        status = "SKIP";
-        done = true;
-      } else if (touchLEDSensor.pressing()) {
-        if (target == COLOR_BLACK) {
-          gCal[target] = calibrateBlackBrightness();
-        } else {
-          gCal[target] = calibrateTileHue(target);
-        }
-        status = "SAVED";
-        done = true;
-      }
-
-      wait(WAIT_TIME, msec);
-    }
-
-    Brain.Screen.clearScreen();
-    Brain.Screen.setCursor(1, 1);
-    Brain.Screen.print("CAL %s %s", colorName(target), status);
-    Brain.Screen.setCursor(4, 1);
-    Brain.Screen.print("release to continue");
-    touchLEDSensor.setBlink(calLedColor(target), 0.15, 0.15);
-    wait(900, msec);
-    touchLEDSensor.setBrightness(0);
-  }
-
-  Brain.Screen.clearScreen();
-  Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("Calibration done");
-  Brain.Screen.setCursor(2, 1);
-  Brain.Screen.print("On start tile, facing start");
-  Brain.Screen.setCursor(3, 1);
-  Brain.Screen.print("Press to explore");
-  touchLEDSensor.on(white);
-
-  while (!touchLEDSensor.pressing()) {
-    wait(WAIT_TIME, msec);
-  }
-  touchLEDSensor.setBrightness(0);
-  gState = STATE_INIT;
-}
-
 // ---- Handlers ----
-static bool resetButtonPressed(void) {
+static bool resetButtonPressed(void) {                                //unused might remove if it doesnt break anything
   return touchLEDSensor.pressing() || bumpSensor.pressing();
 }
 

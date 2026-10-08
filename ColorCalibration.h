@@ -7,12 +7,23 @@
 using namespace vex;
 
 #define NUM_SAMPLES 10
-
+#define WAIT_TIME 200
 // Fallback black threshold, only used if calibration is skipped
 #define BRIGHT_LOW 10
 #define BLACK_MARGIN 5      // headroom above the calibrated black level
 #define BLACK_THRESH_MIN 2  // clamps, so one bad placement can neither swallow
 #define BLACK_THRESH_MAX 40 // the whole course into BLACK nor lose the tile
+
+#define COLOR_RED CAL_RED
+#define COLOR_GREEN CAL_GREEN
+#define COLOR_BLUE CAL_BLUE
+#define COLOR_YELLOW CAL_YELLOW
+#define COLOR_WHITE CAL_WHITE
+#define COLOR_BLACK CAL_BLACK
+#define COLOR_CALIBRATED_COUNT CAL_CALIBRATED_COUNT
+#define COLOR_COUNT CAL_COUNT
+
+#define PI 3.14159265358979 // VEXcode often lacks M_PI
 
 enum CalColor {
   CAL_RED = 0,
@@ -25,16 +36,18 @@ enum CalColor {
   CAL_COUNT = CAL_CALIBRATED_COUNT + 1
 };
 
-#define COLOR_RED CAL_RED
-#define COLOR_GREEN CAL_GREEN
-#define COLOR_BLUE CAL_BLUE
-#define COLOR_YELLOW CAL_YELLOW
-#define COLOR_WHITE CAL_WHITE
-#define COLOR_BLACK CAL_BLACK
-#define COLOR_CALIBRATED_COUNT CAL_CALIBRATED_COUNT
-#define COLOR_COUNT CAL_COUNT
+typedef enum RobotState {       //moved from main
+  STATE_INIT,
+  STATE_COLOR_CAL,
+  STATE_IDLE,
+  STATE_COLOR_CHECK,
+  STATE_WALL_CHECK,
+  STATE_DECIDE,
+  STATE_MOVE,
+  STATE_ERROR,
+} RobotState;
 
-static constexpr double PI = 3.14159265358979; // VEXcode often lacks M_PI
+extern RobotState gState;
 
 struct HueCalibration {
   double center;    // mean hue of the tile, kept in [0, 360)
@@ -51,6 +64,14 @@ extern vex::brain Brain;
 extern touchled touchLEDSensor;
 extern optical opticalSensor;
 extern HueCalibration gCal[COLOR_COUNT];
+extern vex::touchled touchLEDSensor;
+extern vex::optical opticalSensor;
+extern vex::bumper bumpSensor;
+
+//Shared Maze functions
+void handleColorCal(void);
+TileColor classifyTileColor(double hue, double bright);
+
 
 // Hue math
 double wrapHue(double h);
