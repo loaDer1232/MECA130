@@ -6,9 +6,9 @@
 /* Description: IQ2 project */
 /* Final Project MECA130*/
 /*----------------------------------------------------------------------------*/
+#include "ColorCalibration.h"
 #include "navigation.h"
 #include "vex.h"
-#include "ColorCalibration.h"
 #include <cmath>
 
 #define LOOP_DELAY 200
@@ -18,7 +18,6 @@
 #define WAIT_TIME 200
 #define SCREEN_RESET_X 1
 #define SCREEN_RESET_Y 1
-#define NUM_SAMPLES 10
 
 #define BUFFER_SIZE 3
 
@@ -37,20 +36,6 @@
 #define HEADING_EAST 90
 #define HEADING_SOUTH 180
 #define HEADING_WEST 270
-
-#define BRIGHT_LOW 10        // fallback black threshold, only if calibration is skipped
-#define BLACK_MARGIN 5       // headroom above the calibrated black level
-#define BLACK_THRESH_MIN 2   // clamps, so one bad placement can neither swallow
-#define BLACK_THRESH_MAX 40  // the whole course into BLACK nor lose the tile
-
-#define COLOR_RED CAL_RED
-#define COLOR_GREEN CAL_GREEN
-#define COLOR_BLUE CAL_BLUE
-#define COLOR_YELLOW CAL_YELLOW
-#define COLOR_WHITE CAL_WHITE
-#define COLOR_BLACK CAL_BLACK
-#define COLOR_CALIBRATED_COUNT CAL_CALIBRATED_COUNT
-#define COLOR_COUNT CAL_COUNT
 
 typedef enum RobotState {
   STATE_INIT,
@@ -88,24 +73,19 @@ TileColor classifyTileColor(double hue, double bright) {
 }
 
 using namespace vex;
-
-
-
+// Smart Vex Device Setup
 vex::brain Brain;
-
+touchled touchLEDSensor = touchled(PORT10);
+optical opticalSensor = optical(PORT1);
 motor leftMotor =
     motor(PORT6, false); // standard direction check port***   task 1.4
 motor rightMotor = motor(PORT12, true);   // reversed (mirrored mounting)
 inertial brainInertial = inertial(right); // task 1.4
-
-smartdrive Drivetrain = smartdrive( // task 1.4
+smartdrive Drivetrain = smartdrive(       // task 1.4
     leftMotor, rightMotor, brainInertial, WHEEL_CIRCUMFERENCE, TRACK_WIDTH_MM,
     WHEEL_BASE_MM, mm, GEAR_RATIO); // task 1.4
 
 distance distanceSensor = distance(PORT5);
-touchled touchLEDSensor = touchled(PORT10);
-optical opticalSensor = optical(PORT1);
-
 bumper bumpSensor = bumper(PORT11);
 
 double buffer[BUFFER_SIZE];
@@ -144,11 +124,9 @@ static int gNextDir = 0;
 static bool gWallAhead = false;
 TileColor gtileColor;
 
-
 static const CalColor gCalOrder[] = {COLOR_BLACK, COLOR_RED,    COLOR_GREEN,
-                                  COLOR_BLUE,  COLOR_YELLOW, COLOR_WHITE};
+                                     COLOR_BLUE,  COLOR_YELLOW, COLOR_WHITE};
 static const int CAL_STEPS = (int)(sizeof(gCalOrder) / sizeof(gCalOrder[0]));
-
 
 // --- Handlers ---
 
@@ -162,10 +140,9 @@ void handleInit(void) {
   do {
     wait(WAIT_TIME, msec);
   } while (brainInertial.isCalibrating());
-
-  gHeading = NORTH;
   gState = STATE_IDLE;
 }
+
 // go through each tile once, save its custom hue/brightness range, and skip any
 // tile that should be left at the sensor's default value. The wrapped hue logic
 // is retained so red's 0/360 seam does not split the calibration band.
@@ -231,8 +208,7 @@ void handleColorCal(void) {
     touchLEDSensor.setBlink(calLedColor(target), 0.15, 0.15);
     wait(900, msec);
     touchLEDSensor.setBrightness(0);
-}
-
+  }
 
   Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
@@ -247,7 +223,7 @@ void handleColorCal(void) {
     wait(WAIT_TIME, msec);
   }
   touchLEDSensor.setBrightness(0);
-        gState = STATE_INIT;
+  gState = STATE_INIT;
 }
 
 // ---- Handlers ----
@@ -297,10 +273,10 @@ void handleDecide(void) {
   Action decsion = decide(gWallAhead, gtileColor);
   switch (decsion) {
   case LEFT:
-    gNextDir = -1;
+    gNextDir = static_cast<Heading>((getHeading() - 1) % 4);
     break;
   case RIGHT:
-    gNextDir = 1;
+    gNextDir = static_cast<Heading>((getHeading() + 1) % 4);
     break;
   case IDLE:
     return;
@@ -313,9 +289,9 @@ void handleDecide(void) {
 void handleMove(void) {
   touchLEDSensor.on(green);
 
-  if (gNextDir) {
-    Drivetrain.turnToRotation(gNextDir * QUARTER_TURN, degrees);
-    gNextDir=0;
+  if (gNextDir != getHeading()) {
+    Drivetrain.turnToRotation((int)gNextDir * QUARTER_TURN, degrees);
+    gNextDir = getHeading();
   } else {
     Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
   }
@@ -351,8 +327,8 @@ void handleError(void) {
   touchLEDSensor.on(red);
   // I dont like that I am calling for the debug object I made
   Info info = getInfo();
-  Brain.Screen.print("place on center of %i, %i faceing %c", info.cell.x, info.cell.y,
-                     info.heading);
+  Brain.Screen.print("place on center of %i, %i faceing %c", info.cell.x,
+                     info.cell.y, info.heading);
   while (!touchLEDSensor.pressing())
     wait(WAIT_TIME, msec);
 

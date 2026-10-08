@@ -11,7 +11,7 @@ Cell maze[MAZE_HEIGHT][MAZE_WIDTH];
 int cachesFound = 0;
 int survivorsFound = 0;
 int hazardsFound = 0;
-bool assmbleyFound = false;
+struct AssmeblyTile assmeblyTile;
 
 int x = 0;
 int y = 0;
@@ -192,47 +192,7 @@ static void planPath(Cell *from, Cell *to) {
   }
 }
 
-Action mapCell(bool wallFront, TileColor color, Cell *cell) {
-  static int loop = 0;
-  if (loop < 4) {
-    updateWall(cell, wallFront);
-    updateHeading(RIGHT);
-    loop++;
-    return RIGHT;
-  }
-  loop = 0;
-  cell->type = classifyTile(color);
-  if (cell->type != TILE_NORMAL) {
-    switch (cell->type) {
-    case TILE_HAZARD:
-      hazardsFound++;
-      break;
-    case TILE_SURVIVOR:
-      survivorsFound++;
-      break;
-    case TILE_CACHE:
-      cachesFound++;
-      break;
-    case TILE_ASSEMBLY:
-      assmbleyFound = true;
-      break;
-    default:
-      break;
-    }
-  }
-  return IDLE; // "mapping finished"; decide() carries on planning (see [FIX 2])
-}
-
-Action decide(bool wallFront, TileColor color) {
-  Cell *currentCell = &maze[x][y];
-  init();
-  if (currentCell->type == TILE_UNKNOWN) {
-    Action mapAction = mapCell(wallFront, color, currentCell);
-    if (mapAction != IDLE) // still spinning to look at the walls
-      return mapAction;
-    // returning IDLE. IDLE from decide() now only ever means "finished".
-  }
-
+Cell *expolering(Cell *currentCell) {
   // finds valid edgeNodes
   for (int i = 0; i < 4; i++) {
     Heading testHeading = static_cast<Heading>(i);
@@ -256,11 +216,67 @@ Action decide(bool wallFront, TileColor color) {
       }
     }
     if (!targetCell) // no more cells to explore
-      return IDLE;
-
-    // Navigate from current to target cell
-    planPath(currentCell, targetCell);
+      return nullptr;
   }
+  return targetCell;
+}
+
+Action mapCell(bool wallFront, TileColor color, Cell *cell) {
+  static int loop = 0;
+  if (loop < 4) {
+    updateWall(cell, wallFront);
+    updateHeading(RIGHT);
+    loop++;
+    return RIGHT;
+  }
+  loop = 0;
+  cell->type = classifyTile(color);
+  if (cell->type != TILE_NORMAL) {
+    switch (cell->type) {
+    case TILE_HAZARD:
+      hazardsFound++;
+      break;
+    case TILE_SURVIVOR:
+      survivorsFound++;
+      break;
+    case TILE_CACHE:
+      cachesFound++;
+      break;
+    case TILE_ASSEMBLY:
+      assmeblyTile.found = true;
+      break;
+    default:
+      break;
+    }
+  }
+  return IDLE; // "mapping finished"; decide() carries on planning (see [FIX
+               // 2])
+}
+
+Action decide(bool wallFront, TileColor color) {
+  Cell *currentCell = &maze[x][y];
+  init();
+  if (currentCell->type == TILE_UNKNOWN) {
+    Action mapAction = mapCell(wallFront, color, currentCell);
+    if (mapAction != IDLE) // still spinning to look at the walls
+      return mapAction;
+    // returning IDLE. IDLE from decide() now only ever means "finished".
+  }
+  if (currentCell->type == TILE_SURVIVOR && assmeblyTile.found) {
+    targetCell = assmeblyTile.cell;
+  }
+  if (currentCell->type == TILE_HAZARD) {
+    updateHeading(RIGHT);
+    updateHeading(RIGHT);
+    updateXY();
+    updateHeading(RIGHT);
+    updateHeading(RIGHT);
+    return REVERSE;
+  } else {
+    targetCell = expolering(currentCell);
+  }
+  // Navigate from current to target cell
+  planPath(currentCell, targetCell);
 
   Action finalAction = *static_cast<Action *>(dequeue(&actions));
   updateHeading(finalAction);
@@ -288,9 +304,7 @@ Tile classifyTile(TileColor color) {
   }
 }
 
-Heading getHeading(){
-  return heading;
-}
+Heading getHeading() { return heading; }
 
 Info getInfo() {
   Info info;

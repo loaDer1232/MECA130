@@ -36,6 +36,11 @@ typedef struct Info {
   Cell target;
 } Info;
 
+struct AssmeblyTile {
+  bool found = false;
+  Cell *cell;
+};
+
 Action decide(bool wallFront, TileColor color);
 Tile classifyTile(TileColor color);
 

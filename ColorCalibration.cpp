@@ -1,54 +1,18 @@
-#ifndef COLORCALIBRATION
-#define COLORCALIBRATION
 #include "ColorCalibration.h"
-#include "navigation.h"
-#include "vex.h"
-
-#define NUM_SAMPLES 10
-
-#define BRIGHT_LOW                                                             \
-  10 // fallback black threshold, only if calibration is skipped
-#define BLACK_MARGIN 5      // headroom above the calibrated black level
-#define BLACK_THRESH_MIN 2  // clamps, so one bad placement can neither swallow
-#define BLACK_THRESH_MAX 40 // the whole course into BLACK nor lose the tile
-
-#define COLOR_RED CAL_RED
-#define COLOR_GREEN CAL_GREEN
-#define COLOR_BLUE CAL_BLUE
-#define COLOR_YELLOW CAL_YELLOW
-#define COLOR_WHITE CAL_WHITE
-#define COLOR_BLACK CAL_BLACK
-#define COLOR_CALIBRATED_COUNT CAL_CALIBRATED_COUNT
-#define COLOR_COUNT CAL_COUNT
-
-using namespace vex;
+#include <cmath>
 
 vex::brain Brain;
 touchled touchLEDSensor = touchled(PORT10);
 optical opticalSensor = optical(PORT1);
 
-TileColor indexToTileColor(CalColor c) {
-  switch (c) {
-  case COLOR_RED:
-    return RED;
-  case COLOR_GREEN:
-    return GREEN;
-  case COLOR_BLUE:
-    return BLUE;
-  case COLOR_YELLOW:
-    return YELLOW;
-  case COLOR_WHITE:
-    return WHITE;
-  case COLOR_BLACK:
-    return BLACK;
-  default:
-    return WHITE; // unreachable
-  }
-}
-
 HueCalibration gCal[COLOR_COUNT];
 
-double wrapHue(double h) { // hue is cyclic, so fold any angle into [0, 360)
+// ---------------------------------------------------------------------------
+// Hue math
+// ---------------------------------------------------------------------------
+
+// Hue is cyclic, so fold any angle into [0, 360)
+double wrapHue(double h) {
   h = fmod(h, 360.0);
   if (h < 0.0)
     h += 360.0;
@@ -74,53 +38,11 @@ double circularMean(const double vals[], int n) {
   return wrapHue(atan2(sY, sX) * 180.0 / PI);
 }
 
-static const char *tileColorName(TileColor c) {
-  switch (c) {
-  case RED:
-    return "RED";
-  case GREEN:
-    return "GREEN";
-  case BLUE:
-    return "BLUE";
-  case YELLOW:
-    return "YELLOW";
-  case WHITE:
-    return "WHITE";
-  case BLACK:
-    return "BLACK";
-  default:
-    return "?";
-  }
-}
+// ---------------------------------------------------------------------------
+// Calibration
+// ---------------------------------------------------------------------------
 
-static color calLedColor(CalColor c) {
-  switch (c) {
-  case COLOR_RED:
-    return vex::red;
-  case COLOR_GREEN:
-    return vex::green;
-  case COLOR_BLUE:
-    return vex::blue;
-  case COLOR_YELLOW:
-    return vex::yellow;
-  case COLOR_WHITE:
-    return vex::white;
-  case COLOR_BLACK:
-    return vex::black;
-  default:
-    return vex::white;
-  }
-}
-
-// Black has no hue band, so it is decided purely on brightness. The threshold
-// comes from the black calibration step; BRIGHT_LOW is the fallback for when
-// that step was skipped.
-static double blackThreshold() {
-  return (gCal[COLOR_BLACK].tolerance > 0.0) ? gCal[COLOR_BLACK].center
-                                             : (double)BRIGHT_LOW;
-}
-
-HueCalibration calibrateTileHue(color c) {
+HueCalibration calibrateTileHue(CalColor c) {
   (void)c; // the band is found from the samples, not assumed from the name
   double samples[NUM_SAMPLES];
   for (int i = 0; i < NUM_SAMPLES; i++) {
@@ -163,7 +85,57 @@ HueCalibration calibrateBlackBrightness(void) {
   return HueCalibration{threshold, BLACK_MARGIN};
 }
 
-static const char *colorName(CalColor c) {
+// Black has no hue band, so it is decided purely on brightness. The threshold
+// comes from the black calibration step; BRIGHT_LOW is the fallback for when
+// that step was skipped.
+double blackThreshold() {
+  return (gCal[COLOR_BLACK].tolerance > 0.0) ? gCal[COLOR_BLACK].center
+                                             : (double)BRIGHT_LOW;
+}
+
+// ---------------------------------------------------------------------------
+// Name / color lookups
+// ---------------------------------------------------------------------------
+
+TileColor indexToTileColor(CalColor c) {
+  switch (c) {
+  case COLOR_RED:
+    return RED;
+  case COLOR_GREEN:
+    return GREEN;
+  case COLOR_BLUE:
+    return BLUE;
+  case COLOR_YELLOW:
+    return YELLOW;
+  case COLOR_WHITE:
+    return WHITE;
+  case COLOR_BLACK:
+    return BLACK;
+  default:
+    return WHITE; // unreachable
+  }
+}
+
+const char *tileColorName(TileColor c) {
+  switch (c) {
+  case RED:
+    return "RED";
+  case GREEN:
+    return "GREEN";
+  case BLUE:
+    return "BLUE";
+  case YELLOW:
+    return "YELLOW";
+  case WHITE:
+    return "WHITE";
+  case BLACK:
+    return "BLACK";
+  default:
+    return "?";
+  }
+}
+
+const char *colorName(CalColor c) {
   switch (c) {
   case COLOR_RED:
     return "RED";
@@ -182,7 +154,7 @@ static const char *colorName(CalColor c) {
   }
 }
 
-static const char *sensorColorName(vex::color c) {
+const char *sensorColorName(vex::color c) {
   if (c == vex::red)
     return "RED";
   if (c == vex::green)
@@ -202,4 +174,21 @@ static const char *sensorColorName(vex::color c) {
   return "BLACK";
 }
 
-#endif
+color calLedColor(CalColor c) {
+  switch (c) {
+  case COLOR_RED:
+    return vex::red;
+  case COLOR_GREEN:
+    return vex::green;
+  case COLOR_BLUE:
+    return vex::blue;
+  case COLOR_YELLOW:
+    return vex::yellow;
+  case COLOR_WHITE:
+    return vex::white;
+  case COLOR_BLACK:
+    return vex::black;
+  default:
+    return vex::white;
+  }
+}
