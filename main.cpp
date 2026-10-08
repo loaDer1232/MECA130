@@ -37,42 +37,75 @@
 #define HEADING_SOUTH 180
 #define HEADING_WEST 270
 
-#define PI 3.14159265358979323846
+#define BRIGHT_LOW 10        // fallback black threshold, only if calibration is skipped
+#define BLACK_MARGIN 5       // headroom above the calibrated black level
+#define BLACK_THRESH_MIN 2   // clamps, so one bad placement can neither swallow
+#define BLACK_THRESH_MAX 40  // the whole course into BLACK nor lose the tile
+
+#define COLOR_RED CAL_RED
+#define COLOR_GREEN CAL_GREEN
+#define COLOR_BLUE CAL_BLUE
+#define COLOR_YELLOW CAL_YELLOW
+#define COLOR_WHITE CAL_WHITE
+#define COLOR_BLACK CAL_BLACK
+#define COLOR_CALIBRATED_COUNT CAL_CALIBRATED_COUNT
+#define COLOR_COUNT CAL_COUNT
+
+typedef enum {
+  CAL_RED = 0,
+  CAL_GREEN,
+  CAL_BLUE,
+  CAL_YELLOW,
+  CAL_WHITE,
+  CAL_BLACK,
+  CAL_CALIBRATED_COUNT = CAL_BLACK,
+  CAL_COUNT = CAL_CALIBRATED_COUNT + 1
+} CalColor;
 
 typedef enum RobotState {
   STATE_INIT,
   STATE_COLOR_CAL,
-  STATE_IDLE,typedef struct {
-  double center;     // mean hue of the tile, kept in [0, 360)
-  double tolerance;  // half-width of the accepted band, in degrees
+  STATE_IDLE,
+  STATE_COLOR_CHECK,
+  STATE_WALL_CHECK,
+  STATE_DECIDE,
+  STATE_MOVE,
+  STATE_ERROR,
+} RobotState;
+
+typedef struct HueCalibration {
+  double center;    // mean hue of the tile, kept in [0, 360)
+  double tolerance; // half-width of the accepted band, in degrees
 } HueCalibration;
 
+static constexpr double PI = 3.14159265358979; // VEXcode often lacks M_PI
 
-static constexpr double PI = 3.14159265358979;  // VEXcode often lacks M_PI
-
-TileColor indexToTileColor(Colour c) {
+TileColor indexToTileColor(CalColor c) {
   switch (c) {
-  case COLOUR_RED:    return RED;
-  case COLOUR_GREEN:  return GREEN;
-  case COLOUR_BLUE:   return BLUE;
-  case COLOUR_YELLOW: return YELLOW;
-  case COLOUR_WHITE:  return WHITE;
-  case COLOUR_BLACK:  return BLACK;
-  default:            return WHITE;  // unreachable
+  case COLOR_RED :
+    return RED;
+  case COLOR_GREEN:
+    return GREEN;
+  case COLOR_BLUE:
+    return BLUE;
+  case COLOR_YELLOW:
+    return YELLOW;
+  case COLOR_WHITE:
+    return WHITE;
+  case COLOR_BLACK:
+    return BLACK;
+  default:
+    return WHITE; // unreachable
   }
 }
-typedef struct {
-  double center;     // mean hue of the tile, kept in [0, 360)
-  double tolerance;  // half-width of the accepted band, in degrees
-} HueCalibration;
 
-HueCalibration gCal[COLOUR_COUNT];
+HueCalibration gCal[COLOR_COUNT];
 
-static constexpr double PI = 3.14159265358979;  // VEXcode often lacks M_PI
 
-double wrapHue(double h) {  // hue is cyclic, so fold any angle into [0, 360)
+double wrapHue(double h) { // hue is cyclic, so fold any angle into [0, 360)
   h = fmod(h, 360.0);
-  if (h < 0.0) h += 360.0;
+  if (h < 0.0)
+    h += 360.0;
   return h;
 }
 
@@ -95,35 +128,41 @@ double circularMean(const double vals[], int n) {
   return wrapHue(atan2(sY, sX) * 180.0 / PI);
 }
 
-TileColor indexToTileColor(Colour c) {
+static const char *tileColorName(TileColor c) {
   switch (c) {
-  case COLOUR_RED:    return RED;
-  case COLOUR_GREEN:  return GREEN;
-  case COLOUR_BLUE:   return BLUE;
-  case COLOUR_YELLOW: return YELLOW;
-  case COLOUR_WHITE:  return WHITE;
-  case COLOUR_BLACK:  return BLACK;
-  default:            return WHITE;  // unreachable
+  case RED:
+    return "RED";
+  case GREEN:
+    return "GREEN";
+  case BLUE:
+    return "BLUE";
+  case YELLOW:
+    return "YELLOW";
+  case WHITE:
+    return "WHITE";
+  case BLACK:
+    return "BLACK";
+  default:
+    return "?";
   }
 }
-
 // Black has no hue band, so it is decided purely on brightness. The threshold
 // comes from the black calibration step; BRIGHT_LOW is the fallback for when
 // that step was skipped.
 static double blackThreshold() {
-  return (gCal[COLOUR_BLACK].tolerance > 0.0) ? gCal[COLOUR_BLACK].center
-                                              : (double)BRIGHT_LOW;
+  return (gCal[COLOR_BLACK].tolerance > 0.0) ? gCal[COLOR_BLACK].center
+                                             : (double)BRIGHT_LOW;
 }
 
-// Nearest calibrated centre, accepted only if it is inside that colour's band.
-// No hue colour is special-cased, so no hand-written hue range can be wrong.
+// Nearest calibrated centre, accepted only if it is inside that color's band.
+// No hue color is special-cased, so no hand-written hue range can be wrong.
 TileColor classifyTileColor(double hue, double bright) {
   if (bright < blackThreshold()) {
-    return BLACK;  // hue is unreliable on dark surfaces
+    return BLACK; // hue is unreliable on dark surfaces
   }
   int bestIdx = 0;
-  double bestDist = hueDistance(hue, gCal[COLOUR_RED].center);
-  for (int i = 1; i < COLOUR_CALIBRATED_COUNT; i++) {
+  double bestDist = hueDistance(hue, gCal[COLOR_RED].center);
+  for (int i = 1; i < COLOR_CALIBRATED_COUNT; i++) {
     double d = hueDistance(hue, gCal[i].center);
     if (d < bestDist) {
       bestDist = d;
@@ -132,7 +171,7 @@ TileColor classifyTileColor(double hue, double bright) {
   }
 
   if (bestDist <= gCal[bestIdx].tolerance) {
-    return indexToTileColor((Colour)bestIdx);
+    return indexToTileColor((CalColor)bestIdx);
   }
   // Outside every calibrated band. Black is already caught above, so white
   // (the calibrated finish tile) is the only sensible fallback.
@@ -140,15 +179,6 @@ TileColor classifyTileColor(double hue, double bright) {
 }
 
 using namespace vex;
-
-
-  STATE_COLOUR_CHECK,
-  STATE_WALL_CHECK,
-  STATE_DECIDE,
-  STATE_MOVE,
-  STATE_ERROR,
-  STATE_RECOVERY,
-} RobotState;
 
 typedef struct {
   double max;
@@ -194,7 +224,7 @@ distance distanceSensor = distance(PORT5);
 touchled touchLEDSensor = touchled(PORT10);
 optical opticalSensor = optical(PORT1);
 
-bumper Bumper1 = bumper(PORT11);
+bumper bumpSensor = bumper(PORT11);
 
 double buffer[BUFFER_SIZE];
 int writeIndex = 0;
@@ -228,7 +258,7 @@ bool updateWallDetection(double avg) {
 }
 static RobotState gState = STATE_COLOR_CAL;
 static Heading gHeading = NORTH;
-static Heading gNextDir = NORTH;
+static int gNextDir = 0;
 static bool gWallAhead = false;
 TileColor gtileColor;
 
@@ -288,7 +318,7 @@ void hitWall(Action wall) {
   //             touchLEDSensor.set_brightness(100);
   //             touchLEDSensor.setBlink(red, 1, 1);
   //             wait(400, msec);
-  //             gState = STATE_COLOUR_CHECK;
+  //             gState = STATE_COLOR_CHECK;
   //             return;
   //           }
   //         }
@@ -297,8 +327,8 @@ void hitWall(Action wall) {
   //   }
   //   gState = STATE_ERROR; // goes to error state if cannot self-re-orient
 }
-HueCalibration calibrateTileHue(Colour c) {
-  (void)c;  // the band is found from the samples, not assumed from the name
+HueCalibration calibrateTileHue(color c) {
+  (void)c; // the band is found from the samples, not assumed from the name
   double samples[NUM_SAMPLES];
   for (int i = 0; i < NUM_SAMPLES; i++) {
     samples[i] = opticalSensor.hue();
@@ -311,11 +341,14 @@ HueCalibration calibrateTileHue(Colour c) {
   double spread = 0.0;
   for (int i = 0; i < NUM_SAMPLES; i++) {
     double d = hueDistance(samples[i], center);
-    if (d > spread) spread = d;
+    if (d > spread)
+      spread = d;
   }
   double tolerance = spread + 10.0;
-  if (tolerance < 10.0) tolerance = 10.0;
-  if (tolerance > 45.0) tolerance = 45.0;
+  if (tolerance < 10.0)
+    tolerance = 10.0;
+  if (tolerance > 45.0)
+    tolerance = 45.0;
 
   return HueCalibration{center, tolerance};
 }
@@ -330,49 +363,72 @@ HueCalibration calibrateBlackBrightness(void) {
     sum += opticalSensor.brightness();
   }
   double threshold = sum / (double)NUM_SAMPLES + BLACK_MARGIN;
-  if (threshold < BLACK_THRESH_MIN) threshold = BLACK_THRESH_MIN;
-  if (threshold > BLACK_THRESH_MAX) threshold = BLACK_THRESH_MAX;
+  if (threshold < BLACK_THRESH_MIN)
+    threshold = BLACK_THRESH_MIN;
+  if (threshold > BLACK_THRESH_MAX)
+    threshold = BLACK_THRESH_MAX;
   return HueCalibration{threshold, BLACK_MARGIN};
 }
 
-static const Colour gCalOrder[] = {
-    COLOUR_BLACK, COLOUR_RED,   COLOUR_GREEN,
-    COLOUR_BLUE,  COLOUR_YELLOW, COLOUR_WHITE};
+static const color gCalOrder[] = {COLOR_BLACK, COLOR_RED,    COLOR_GREEN,
+                                  COLOR_BLUE,  COLOR_YELLOW, COLOR_WHITE};
 static const int CAL_STEPS = (int)(sizeof(gCalOrder) / sizeof(gCalOrder[0]));
 
-static const char *colourName(Colour c) {
+static const char *colorName(color c) {
   switch (c) {
-  case COLOUR_RED:    return "RED";
-  case COLOUR_GREEN:  return "GREEN";
-  case COLOUR_BLUE:   return "BLUE";
-  case COLOUR_YELLOW: return "YELLOW";
-  case COLOUR_WHITE:  return "WHITE";
-  case COLOUR_BLACK:  return "BLACK";
-  default:            return "?";
+  case COLOR_RED:
+    return "RED";
+  case COLOR_GREEN:
+    return "GREEN";
+  case COLOR_BLUE:
+    return "BLUE";
+  case COLOR_YELLOW:
+    return "YELLOW";
+  case COLOR_WHITE:
+    return "WHITE";
+  case COLOR_BLACK:
+    return "BLACK";
+  default:
+    return "?";
   }
 }
 
 static const char *sensorColorName(vex::color c) {
-  if (c == vex::red) return "RED";
-  if (c == vex::green) return "GREEN";
-  if (c == vex::blue) return "BLUE";
-  if (c == vex::yellow) return "YELLOW";
-  if (c == vex::white) return "WHITE";
-  if (c == vex::black) return "BLACK";
-  if (c == vex::purple) return "PURPLE";
-  if (c == vex::orange) return "ORANGE";
+  if (c == vex::red)
+    return "RED";
+  if (c == vex::green)
+    return "GREEN";
+  if (c == vex::blue)
+    return "BLUE";
+  if (c == vex::yellow)
+    return "YELLOW";
+  if (c == vex::white)
+    return "WHITE";
+  if (c == vex::black)
+    return "BLACK";
+  if (c == vex::purple)
+    return "PURPLE";
+  if (c == vex::orange)
+    return "ORANGE";
   return "BLACK";
 }
 
-static colorType calLedColour(Colour c) {
+static color calLedColor(color c) {
   switch (c) {
-  case COLOUR_RED:    return vex::red;
-  case COLOUR_GREEN:  return vex::green;
-  case COLOUR_BLUE:   return vex::blue;
-  case COLOUR_YELLOW: return vex::yellow;
-  case COLOUR_WHITE:  return vex::white;
-  case COLOUR_BLACK:  return vex::black;
-  default:            return vex::white;
+  case COLOR_RED:
+    return vex::red;
+  case COLOR_GREEN:
+    return vex::green;
+  case COLOR_BLUE:
+    return vex::blue;
+  case COLOR_YELLOW:
+    return vex::yellow;
+  case COLOR_WHITE:
+    return vex::white;
+  case COLOR_BLACK:
+    return vex::black;
+  default:
+    return vex::white;
   }
 }
 
@@ -392,29 +448,29 @@ void handleInit(void) {
   gHeading = NORTH;
   gState = STATE_IDLE;
 }
-// go through each tile once, save its custom hue/brightness range, and skip any tile
-// that should be left at the sensor's default value. The wrapped hue logic is
-// retained so red's 0/360 seam does not split the calibration band. 
+// go through each tile once, save its custom hue/brightness range, and skip any
+// tile that should be left at the sensor's default value. The wrapped hue logic
+// is retained so red's 0/360 seam does not split the calibration band.
 void handleColorCal(void) {
-  for (int i = 0; i < COLOUR_COUNT; i++) {
+  for (int i = 0; i < COLOR_COUNT; i++) {
     gCal[i].center = 0.0;
     gCal[i].tolerance = 0.0;
   }
 
   for (int step = 0; step < CAL_STEPS; step++) {
-    Colour target = gCalOrder[step];
+    color target = gCalOrder[step];
     bool done = false;
     const char *status = "CHECK";
 
     // Bumper held down at the first step: skip the whole calibration.
-    if (target == COLOUR_BLACK && bumpSensor.pressing()) {
+    if (target == COLOR_BLACK && bumpSensor.pressing()) {
       Brain.Screen.clearScreen();
       Brain.Screen.setCursor(1, 1);
       Brain.Screen.print("Skip calibration");
       break;
     }
 
-    touchLEDSensor.on(calLedColour(target));
+    touchLEDSensor.on(calLedColor(target));
 
     while (!done) {
       double hue = opticalSensor.hue();
@@ -423,7 +479,7 @@ void handleColorCal(void) {
 
       Brain.Screen.clearScreen();
       Brain.Screen.setCursor(1, 1);
-      Brain.Screen.print("CAL %s %s", colourName(target), status);
+      Brain.Screen.print("CAL %s %s", colorName(target), status);
       Brain.Screen.setCursor(2, 1);
       Brain.Screen.print("H:%3d B:%3d", (int)hue, (int)bright);
       Brain.Screen.setCursor(3, 1);
@@ -437,7 +493,7 @@ void handleColorCal(void) {
         status = "SKIP";
         done = true;
       } else if (touchLEDSensor.pressing()) {
-        if (target == COLOUR_BLACK) {
+        if (target == COLOR_BLACK) {
           gCal[target] = calibrateBlackBrightness();
         } else {
           gCal[target] = calibrateTileHue(target);
@@ -446,18 +502,19 @@ void handleColorCal(void) {
         done = true;
       }
 
-      wait(WAIT_TIME_MS, msec);
+      wait(WAIT_TIME, msec);
     }
 
     Brain.Screen.clearScreen();
     Brain.Screen.setCursor(1, 1);
-    Brain.Screen.print("CAL %s %s", colourName(target), status);
+    Brain.Screen.print("CAL %s %s", colorName(target), status);
     Brain.Screen.setCursor(4, 1);
     Brain.Screen.print("release to continue");
-    touchLEDSensor.setBlink(calLedColour(target), 0.15, 0.15);
+    touchLEDSensor.setBlink(calLedColor(target), 0.15, 0.15);
     wait(900, msec);
     touchLEDSensor.setBrightness(0);
-  }
+}
+
 
   Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
@@ -469,9 +526,10 @@ void handleColorCal(void) {
   touchLEDSensor.on(white);
 
   while (!touchLEDSensor.pressing()) {
-    wait(WAIT_TIME_MS, msec);
+    wait(WAIT_TIME, msec);
   }
   touchLEDSensor.setBrightness(0);
+        gState = STATE_INIT;
 }
 
 // ---- Handlers ----
@@ -486,11 +544,11 @@ void handleIdle(void) {
   Brain.Screen.print("Press to start");
 
   if (touchLEDSensor.pressing()) {
-    gState = STATE_COLOUR_CHECK;
+    gState = STATE_COLOR_CHECK;
   }
 }
 
-void handleColourCheck(void) {
+void handlecolorCheck(void) {
   touchLEDSensor.on(blue);
   gtileColor =
       classifyTileColor(opticalSensor.hue(), opticalSensor.brightness());
@@ -521,15 +579,15 @@ void handleDecide(void) {
   Action decsion = decide(gWallAhead, gtileColor);
   switch (decsion) {
   case LEFT:
-    gNextDir = static_cast<Heading>((gHeading - 1) % 4);
+    gNextDir = -1;
     break;
   case RIGHT:
-    gNextDir = static_cast<Heading>((gHeading + 1) % 4);
+    gNextDir = 1;
     break;
   case IDLE:
     return;
   default:
-    gNextDir = gHeading;
+    gNextDir = 0;
   }
   gState = STATE_MOVE;
 }
@@ -537,14 +595,14 @@ void handleDecide(void) {
 void handleMove(void) {
   touchLEDSensor.on(green);
 
-  if (gNextDir != gHeading) {
-    Drivetrain.turnToHeading((int)gNextDir * QUARTER_TURN, degrees);
-    gHeading = gNextDir;
+  if (gNextDir) {
+    Drivetrain.turnToRotation(gNextDir * QUARTER_TURN, degrees);
+    gNextDir=0;
   } else {
     Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
   }
   // EXTENSION POINT 3: collision detection goes here
-  gState = STATE_COLOUR_CHECK;
+  gState = STATE_COLOR_CHECK;
 }
 void handleRecovery(void) { // recovery
   // Drivetrain.stop();
@@ -575,13 +633,13 @@ void handleError(void) {
   touchLEDSensor.on(red);
   // I dont like that I am calling for the debug object I made
   Info info = getInfo();
-  Brain.Screen.print("place on center of %i, %i faceing %c", info.x, info.y,
+  Brain.Screen.print("place on center of %i, %i faceing %c", info.cell.x, info.cell.y,
                      info.heading);
   while (!touchLEDSensor.pressing())
     wait(WAIT_TIME, msec);
 
   // Enters loop agian at correct XY
-  gState = STATE_COLOUR_CHECK;
+  gState = STATE_COLOR_CHECK;
 }
 
 // --- Dispatcher ---
@@ -597,8 +655,8 @@ void runStateMachine(void) {
   case STATE_IDLE:
     handleIdle();
     break;
-  case STATE_COLOUR_CHECK:
-    handleColourCheck();
+  case STATE_COLOR_CHECK:
+    handlecolorCheck();
     break;
   case STATE_WALL_CHECK:
     handleWallCheck();
