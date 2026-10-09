@@ -3,10 +3,6 @@
 #include "vex.h"
 #include <cmath>
 
-// vex::brain Brain;                            commented out b/c multiple
-// definitions touchled touchLEDSensor = touchled(PORT10); optical opticalSensor
-// = optical(PORT1);
-
 HueCalibration gCal[COLOR_COUNT];
 
 // ---------------------------------------------------------------------------

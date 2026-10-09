@@ -15,7 +15,6 @@
 
 #define WALL_SET_MM 300
 #define WALL_CLEAR_MM 320
-//#define WAIT_TIME 200        moved to colorcal header
 #define SCREEN_RESET_X 1
 #define SCREEN_RESET_Y 1
 
@@ -37,7 +36,7 @@
 #define HEADING_SOUTH 180
 #define HEADING_WEST 270
 
-typedef enum RobotState {  
+typedef enum RobotState {
   STATE_INIT,
   STATE_COLOR_CAL,
   STATE_IDLE,
@@ -96,7 +95,7 @@ bool updateWallDetection(double avg) {
   return wallDetected;
 }
 
-static RobotState gState = STATE_COLOR_CAL;
+RobotState gState = STATE_COLOR_CAL;
 TileColor gtileColor;
 
 static Heading gNextDir = getHeading();
@@ -117,12 +116,13 @@ void handleInit(void) {
   gState = STATE_IDLE;
 }
 
-void handleColorCal(){
-    colorCal();
-    gState = STATE_INIT;
+void handleColorCal() {
+  colorCal();
+  gState = STATE_INIT;
 }
 
-static bool resetButtonPressed(void) {                                //unused might remove if it doesnt break anything
+static bool
+resetButtonPressed(void) { // unused might remove if it doesnt break anything
   return touchLEDSensor.pressing() || bumpSensor.pressing();
 }
 
@@ -174,6 +174,7 @@ void handleDecide(void) {
     gNextDir = static_cast<Heading>((getHeading() + 1) % 4);
     break;
   case IDLE:
+    gState = STATE_IDLE;
     return;
   default:
     gNextDir = getHeading();

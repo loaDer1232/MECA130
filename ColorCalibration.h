@@ -1,13 +1,12 @@
 #ifndef COLORCALIBRATION_H
 #define COLORCALIBRATION_H
 
-#include "navigation.h"
+#include "GlobalDefs.h"
 #include "vex.h"
 
 using namespace vex;
 
 #define NUM_SAMPLES 10
-#define WAIT_TIME 200
 // Fallback black threshold, only used if calibration is skipped
 #define BRIGHT_LOW 10
 #define BLACK_MARGIN 5      // headroom above the calibrated black level
@@ -41,7 +40,7 @@ struct HueCalibration {
   double tolerance; // half-width of the accepted band, in degrees
 };
 
-// Hardware and shared state (defined in ColorCalibration.cpp)
+// Hardware defined in .cpp)
 extern vex::brain Brain;
 extern touchled touchLEDSensor;
 extern optical opticalSensor;

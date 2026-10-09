@@ -1,0 +1,18 @@
+#ifndef GLOABALSDEF_H
+#define GLOABALSDEF_H
+
+#define WAIT_TIME 200
+
+#define NUM_SURVIVORS 3
+#define NUM_HAZARD 0
+#define NUM_CACHE 3
+#define NUM_ASSMBELY 1
+
+#define NUM_RED_TILES NUM_HAZARD
+#define NUM_YEL_TILES NUM_CACHE
+#define NUM_BLU_TILES NUM_SURVIVORS
+#define NUM_GRN_TILES NUM_ASSMBELY
+
+typedef enum TileColor { BLACK, RED, GREEN, BLUE, YELLOW, WHITE } TileColor;
+
+#endif

@@ -1,5 +1,6 @@
 #ifndef NAVIGATION_H
 #define NAVIGATION_H
+#include "GlobalDefs.h"
 
 typedef enum Tile {
   TILE_NORMAL,
@@ -10,8 +11,6 @@ typedef enum Tile {
   TILE_START,
   TILE_UNKNOWN
 } Tile;
-
-typedef enum TileColor { BLACK, RED, GREEN, BLUE, YELLOW, WHITE } TileColor;
 
 typedef enum Action { LEFT, FORWARD, RIGHT, IDLE, REVERSE } Action;
 typedef enum Heading { NORTH, EAST, SOUTH, WEST } Heading;

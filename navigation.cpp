@@ -1,6 +1,7 @@
 #include "navigation.h"
 #include "./dataStructs/Queue.h"
 #include "./dataStructs/Stack.h"
+#include "GlobalDefs.h"
 #include <string.h>
 
 #define MAZE_HEIGHT 16
@@ -193,6 +194,7 @@ static void planPath(Cell *from, Cell *to) {
 }
 
 Action mapCell(bool wallFront, TileColor color, Cell *cell) {
+
   static int loop = 0;
   if (loop < 4) {
     updateWall(cell, wallFront);
@@ -215,6 +217,7 @@ Action mapCell(bool wallFront, TileColor color, Cell *cell) {
       break;
     case TILE_ASSEMBLY:
       assmeblyTile.found = true;
+      assmeblyTile.cell = cell;
       break;
     default:
       break;
@@ -225,36 +228,28 @@ Action mapCell(bool wallFront, TileColor color, Cell *cell) {
 }
 
 Cell *exploring(Cell *currentCell) {
-  Cell *targetCell;
   for (int i = 0; i < 4; i++) {
-    Heading testHeading = static_cast<Heading>(i);
-    Cell *childCell = findNeighbor(currentCell, testHeading);
-    // IF childCell is NOT in visitedNodes
-    // push childCell -> visitedNodes & edgeNodes
+    Cell *childCell = findNeighbor(currentCell, static_cast<Heading>(i));
     if (childCell && !isVisited(childCell)) {
       push(&visitedNodes, childCell);
       push(&edgeNodes, childCell);
     }
   }
 
-  // only choose a new target once the previous plan has finished
-  while (isEmpty(&actions)) {
-    targetCell = nullptr;
-    while (edgeNodes.size > 0) {
-      Cell *possibleCell = static_cast<Cell *>(pop(&edgeNodes));
-      if (possibleCell != currentCell && possibleCell->type != TILE_HAZARD) {
-        targetCell = possibleCell;
-        break;
-      }
+  Cell *target = nullptr;
+  while (edgeNodes.size > 0) {
+    Cell *possibleCell = static_cast<Cell *>(pop(&edgeNodes));
+    if (possibleCell != currentCell && possibleCell->type != TILE_HAZARD) {
+      target = possibleCell;
+      break;
     }
-    return targetCell;
   }
+  return target; // always returns now
 }
 
 Action decide(bool wallFront, TileColor color) {
   Cell *currentCell = &maze[x][y];
-  Cell *targetCell;
-
+  static bool pickedUp = false;
   init();
 
   //------Maping-------
@@ -265,21 +260,32 @@ Action decide(bool wallFront, TileColor color) {
     // returning IDLE. IDLE from decide() now only ever means "finished".
   }
 
-  //----Return to start when all survivors found------
-  if (survivorsFound == NUM_SURIVORS && currentCell == assmeblyTile.cell) {
-    targetCell = &maze[0][0];
-  }
-  //------Standerd movement-----
-  else
-    targetCell = exploring(currentCell);
-  if (!targetCell) // no more cells to explore
-    return IDLE;
+  if (isEmpty(&actions)) {
+    Cell *targetCell = nullptr;
 
-  planPath(currentCell, targetCell);
+    if (assmeblyTile.found && survivorsFound == NUM_SURVIVORS) {
+      if (currentCell == assmeblyTile.cell)
+        pickedUp = true;
+      if (pickedUp) {
+        if (currentCell == &maze[0][0])
+          return IDLE; // win condtion
+        targetCell = &maze[0][0];
+      } else {
+        targetCell = assmeblyTile.cell;
+      }
+    } else if (assmeblyTile.found && currentCell->type == TILE_SURVIVOR) {
+      targetCell = assmeblyTile.cell; // carry survivor to assembly
+    } else {
+      targetCell = exploring(currentCell);
+    }
+    if (!targetCell)
+      return IDLE; // nothing left to explore
+    planPath(currentCell, targetCell);
+  }
 
   Action finalAction = *static_cast<Action *>(dequeue(&actions));
   updateHeading(finalAction);
-  if (finalAction == FORWARD) // turning on the spot must not move x/y
+  if (finalAction == FORWARD)
     updateXY();
   return finalAction;
 }
