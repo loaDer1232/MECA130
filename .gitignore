@@ -1,4 +1,13 @@
  #does not need to have a full copy of windows mms
-mms
-*.o
-*.exe
+# Ignore everything
+*
+
+# But not these files...
+!.gitignore
+!.cpp
+!.h
+!.md
+
+# etc...
+# ...even if they are in subdirectories
+!*/
