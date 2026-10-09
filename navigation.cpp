@@ -198,6 +198,7 @@ static void planPath(Cell *from, Cell *to) {
 Action mapCell(bool wallFront, TileColor color, Cell *cell) {
   if (classifyTile(color) == TILE_HAZARD) {
     cell->type = TILE_HAZARD;
+    hazardsFound++;
     updateHeading(REVERSE);
     updateXY();
     return REVERSE;
