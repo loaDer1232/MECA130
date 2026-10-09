@@ -74,6 +74,8 @@ void updateHeading(Action direction) {
   case RIGHT:
     heading = static_cast<Heading>((heading + 1) % 4);
     break;
+  case REVERSE:
+    heading = static_cast<Heading>((heading + 2) % 4);
   default:
     break;
   }
@@ -194,7 +196,12 @@ static void planPath(Cell *from, Cell *to) {
 }
 
 Action mapCell(bool wallFront, TileColor color, Cell *cell) {
-
+  if (classifyTile(color) == TILE_HAZARD) {
+    cell->type = TILE_HAZARD;
+    updateHeading(REVERSE);
+    updateXY();
+    return REVERSE;
+  }
   static int loop = 0;
   if (loop < 4) {
     updateWall(cell, wallFront);
@@ -263,7 +270,8 @@ Action decide(bool wallFront, TileColor color) {
   if (isEmpty(&actions)) {
     Cell *targetCell = nullptr;
 
-    if (assmeblyTile.found && survivorsFound == NUM_SURVIVORS) {
+    if (assmeblyTile.found && survivorsFound == NUM_SURVIVORS &&
+        cachesFound == NUM_CACHE) {
       if (currentCell == assmeblyTile.cell)
         pickedUp = true;
       if (pickedUp) {

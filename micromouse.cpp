@@ -82,8 +82,6 @@ int main() {
       API_turnRight();
       API_turnRight();
       API_moveForward();
-      API_turnRight();
-      API_turnRight();
       break;
     case IDLE:
       debug_log(const_cast<char *>("Exploration finished"));
