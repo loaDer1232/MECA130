@@ -224,16 +224,8 @@ Action mapCell(bool wallFront, TileColor color, Cell *cell) {
                // 2])
 }
 
-Action decide(bool wallFront, TileColor color) {
-  Cell *currentCell = &maze[x][y];
-  init();
-  if (currentCell->type == TILE_UNKNOWN) {
-    Action mapAction = mapCell(wallFront, color, currentCell);
-    if (mapAction != IDLE) // still spinning to look at the walls
-      return mapAction;
-    // returning IDLE. IDLE from decide() now only ever means "finished".
-  }
-    // finds valid edgeNodes
+Cell *exploring(Cell *currentCell) {
+  Cell *targetCell;
   for (int i = 0; i < 4; i++) {
     Heading testHeading = static_cast<Heading>(i);
     Cell *childCell = findNeighbor(currentCell, testHeading);
@@ -255,10 +247,33 @@ Action decide(bool wallFront, TileColor color) {
         break;
       }
     }
-    if (!targetCell) // no more cells to explore
-      return nullptr;
+    return targetCell;
   }
 }
+
+Action decide(bool wallFront, TileColor color) {
+  Cell *currentCell = &maze[x][y];
+  Cell *targetCell;
+
+  init();
+
+  //------Maping-------
+  if (currentCell->type == TILE_UNKNOWN) {
+    Action mapAction = mapCell(wallFront, color, currentCell);
+    if (mapAction != IDLE) // still spinning to look at the walls
+      return mapAction;
+    // returning IDLE. IDLE from decide() now only ever means "finished".
+  }
+
+  //----Return to start when all survivors found------
+  if (survivorsFound == NUM_SURIVORS && currentCell == assmeblyTile.cell) {
+    targetCell = &maze[0][0];
+  }
+  //------Standerd movement-----
+  else
+    targetCell = exploring(currentCell);
+  if (!targetCell) // no more cells to explore
+    return IDLE;
 
   planPath(currentCell, targetCell);
 

@@ -15,7 +15,7 @@
 
 #define WALL_SET_MM 300
 #define WALL_CLEAR_MM 320
-// #define WAIT_TIME 200        moved to colorcal header
+//#define WAIT_TIME 200        moved to colorcal header
 #define SCREEN_RESET_X 1
 #define SCREEN_RESET_Y 1
 
@@ -37,40 +37,16 @@
 #define HEADING_SOUTH 180
 #define HEADING_WEST 270
 
-// typedef enum RobotState {          moved to header 
-//   STATE_INIT,
-//   STATE_COLOR_CAL,
-//   STATE_IDLE,
-//   STATE_COLOR_CHECK,
-//   STATE_WALL_CHECK,
-//   STATE_DECIDE,
-//   STATE_MOVE,
-//   STATE_ERROR,
-// } RobotState;
-
-// // Nearest calibrated centre, accepted only if it is inside that color's band.
-// // No hue color is special-cased, so no hand-written hue range can be wrong.
-// TileColor classifyTileColor(double hue, double bright) {
-//   if (bright < blackThreshold()) {
-//     return BLACK; // hue is unreliable on dark surfaces
-//   }
-//   int bestIdx = 0;
-//   double bestDist = hueDistance(hue, gCal[COLOR_RED].center);
-//   for (int i = 1; i < COLOR_CALIBRATED_COUNT; i++) {
-//     double d = hueDistance(hue, gCal[i].center);
-//     if (d < bestDist) {
-//       bestDist = d;
-//       bestIdx = i;
-//     }
-//   }
-
-//   if (bestDist <= gCal[bestIdx].tolerance) {
-//     return indexToTileColor((CalColor)bestIdx);
-//   }
-//   // Outside every calibrated band. Black is already caught above, so white
-//   // (the calibrated finish tile) is the only sensible fallback.
-//   return WHITE;
-// }
+typedef enum RobotState {  
+  STATE_INIT,
+  STATE_COLOR_CAL,
+  STATE_IDLE,
+  STATE_COLOR_CHECK,
+  STATE_WALL_CHECK,
+  STATE_DECIDE,
+  STATE_MOVE,
+  STATE_ERROR,
+} RobotState;
 
 using namespace vex;
 
@@ -120,17 +96,11 @@ bool updateWallDetection(double avg) {
   return wallDetected;
 }
 
-RobotState gState = STATE_COLOR_CAL;       //not static because external
+static RobotState gState = STATE_COLOR_CAL;
 TileColor gtileColor;
 
-static Heading gHeading = NORTH;
-static int gNextDir = 0;
+static Heading gNextDir = getHeading();
 static bool gWallAhead = false;
-
-
-// static const CalColor gCalOrder[] = {COLOR_BLACK, COLOR_RED,    COLOR_GREEN,
-//                                      COLOR_BLUE,  COLOR_YELLOW, COLOR_WHITE};
-// static const int CAL_STEPS = (int)(sizeof(gCalOrder) / sizeof(gCalOrder[0]));       moved to colorcal.cpp
 
 // --- Handlers ---
 
@@ -147,7 +117,11 @@ void handleInit(void) {
   gState = STATE_IDLE;
 }
 
-// ---- Handlers ----
+void handleColorCal(){
+    colorCal();
+    gState = STATE_INIT;
+}
+
 static bool resetButtonPressed(void) {                                //unused might remove if it doesnt break anything
   return touchLEDSensor.pressing() || bumpSensor.pressing();
 }
@@ -202,7 +176,7 @@ void handleDecide(void) {
   case IDLE:
     return;
   default:
-    gNextDir = 0;
+    gNextDir = getHeading();
   }
   gState = STATE_MOVE;
 }

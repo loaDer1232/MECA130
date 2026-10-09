@@ -36,27 +36,9 @@ enum CalColor {
   CAL_COUNT = CAL_CALIBRATED_COUNT + 1
 };
 
-typedef enum RobotState {       //moved from main
-  STATE_INIT,
-  STATE_COLOR_CAL,
-  STATE_IDLE,
-  STATE_COLOR_CHECK,
-  STATE_WALL_CHECK,
-  STATE_DECIDE,
-  STATE_MOVE,
-  STATE_ERROR,
-} RobotState;
-
-extern RobotState gState;
-
 struct HueCalibration {
   double center;    // mean hue of the tile, kept in [0, 360)
   double tolerance; // half-width of the accepted band, in degrees
-};
-
-struct HueValues {
-  double max;
-  double min;
 };
 
 // Hardware and shared state (defined in ColorCalibration.cpp)
@@ -68,10 +50,9 @@ extern vex::touchled touchLEDSensor;
 extern vex::optical opticalSensor;
 extern vex::bumper bumpSensor;
 
-//Shared Maze functions
+// Shared Maze functions
 void handleColorCal(void);
 TileColor classifyTileColor(double hue, double bright);
-
 
 // Hue math
 double wrapHue(double h);

@@ -1,11 +1,11 @@
-#include "vex.h"
-#include "navigation.h"
 #include "ColorCalibration.h"
+#include "navigation.h"
+#include "vex.h"
 #include <cmath>
 
-// vex::brain Brain;                            commented out b/c multiple definitions
-// touchled touchLEDSensor = touchled(PORT10);
-// optical opticalSensor = optical(PORT1);
+// vex::brain Brain;                            commented out b/c multiple
+// definitions touchled touchLEDSensor = touchled(PORT10); optical opticalSensor
+// = optical(PORT1);
 
 HueCalibration gCal[COLOR_COUNT];
 
@@ -219,15 +219,16 @@ TileColor classifyTileColor(double hue, double bright) {
   return WHITE;
 }
 
-static const CalColor gCalOrder[] = {COLOR_BLACK, COLOR_RED,    COLOR_GREEN,                //array for color order of initial calibration
-                                     COLOR_BLUE,  COLOR_YELLOW, COLOR_WHITE};
+static const CalColor gCalOrder[] = {
+    COLOR_BLACK, COLOR_RED,
+    COLOR_GREEN, // array for color order of initial calibration
+    COLOR_BLUE,  COLOR_YELLOW, COLOR_WHITE};
 static const int CAL_STEPS = (int)(sizeof(gCalOrder) / sizeof(gCalOrder[0]));
-
 
 // go through each tile once, save its custom hue/brightness range, and skip any
 // tile that should be left at the sensor's default value. The wrapped hue logic
 // is retained so red's 0/360 seam does not split the calibration band.
-void handleColorCal(void) {
+void colorCal(void) {
   for (int i = 0; i < COLOR_COUNT; i++) {
     gCal[i].center = 0.0;
     gCal[i].tolerance = 0.0;
@@ -243,8 +244,7 @@ void handleColorCal(void) {
       Brain.Screen.clearScreen();
       Brain.Screen.setCursor(1, 1);
       Brain.Screen.print("Skip calibration");
-      gState = STATE_IDLE;
-      break;
+      return;
     }
 
     touchLEDSensor.on(calLedColor(target));
@@ -261,12 +261,13 @@ void handleColorCal(void) {
       Brain.Screen.print("H:%3d B:%3d", (int)hue, (int)bright);
       Brain.Screen.setCursor(3, 1);
       Brain.Screen.print("sensor=%s", sensorColorName(opticalSensor.color()));
-      if (target == COLOR_BLACK) {                                                  //seperate msg for skipping calibration entirely
+      if (target ==
+          COLOR_BLACK) { // seperate msg for skipping calibration entirely
         Brain.Screen.setCursor(4, 1);
         Brain.Screen.print("LED=SAVE BUMP=SKIPCAL");
-      }else {
-      Brain.Screen.setCursor(4, 1);
-      Brain.Screen.print("LED=SAVE  BUMP=SKIP");
+      } else {
+        Brain.Screen.setCursor(4, 1);
+        Brain.Screen.print("LED=SAVE  BUMP=SKIP");
       }
       Brain.Screen.setCursor(5, 1);
       Brain.Screen.print("Tile=%s", tileColorName(predicted));
@@ -310,5 +311,5 @@ void handleColorCal(void) {
     wait(WAIT_TIME, msec);
   }
   touchLEDSensor.setBrightness(0);
-  gState = STATE_INIT;
+  return;
 }
