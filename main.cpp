@@ -9,7 +9,6 @@
 #include "ColorCalibration.h"
 #include "navigation.h"
 #include "vex.h"
-#include <cmath>
 
 #define LOOP_DELAY 200
 
@@ -20,21 +19,16 @@
 
 #define BUFFER_SIZE 3
 
-#define QUARTER_TURN 90 // task 4
-#define FULL_CIRCLE 360
+#define QUARTER_TURN 90
 
 #define GEAR_RATIO 1
-#define WHEEL_DIAMETER_MM 63.6                            // task 1.1.1
-#define WHEEL_CIRCUMFERENCE (3.14159 * WHEEL_DIAMETER_MM) // task 1.2
-#define TRACK_WIDTH_MM 18.63                              // task 1.3
-#define WHEEL_BASE_MM 121.7                               // task 1.3
+#define WHEEL_DIAMETER_MM 63.6
+#define WHEEL_CIRCUMFERENCE (3.14159 * WHEEL_DIAMETER_MM)
+#define TRACK_WIDTH_MM 18.63
+#define WHEEL_BASE_MM 121.7
 #define CELL_SIZE_MM 300.0 // adjust to r/w measurement
 
 #define INERTIAL_TOLERANCE 2
-#define HEADING_NORTH 0
-#define HEADING_EAST 90
-#define HEADING_SOUTH 180
-#define HEADING_WEST 270
 
 typedef enum RobotState {
   STATE_INIT,
@@ -53,13 +47,12 @@ using namespace vex;
 vex::brain Brain;
 touchled touchLEDSensor = touchled(PORT10);
 optical opticalSensor = optical(PORT1);
-motor leftMotor =
-    motor(PORT6, false); // standard direction check port***   task 1.4
-motor rightMotor = motor(PORT12, true);   // reversed (mirrored mounting)
-inertial brainInertial = inertial(right); // task 1.4
-smartdrive Drivetrain = smartdrive(       // task 1.4
-    leftMotor, rightMotor, brainInertial, WHEEL_CIRCUMFERENCE, TRACK_WIDTH_MM,
-    WHEEL_BASE_MM, mm, GEAR_RATIO); // task 1.4
+motor leftMotor = motor(PORT6, false);  // standard direction check port***
+motor rightMotor = motor(PORT12, true); // reversed (mirrored mounting)
+inertial brainInertial = inertial(right);
+smartdrive Drivetrain =
+    smartdrive(leftMotor, rightMotor, brainInertial, WHEEL_CIRCUMFERENCE,
+               TRACK_WIDTH_MM, WHEEL_BASE_MM, mm, GEAR_RATIO);
 
 distance distanceSensor = distance(PORT5);
 bumper bumpSensor = bumper(PORT11);
@@ -72,7 +65,7 @@ void bufferWrite(double value) {
   buffer[writeIndex] = value;
   writeIndex = (writeIndex + 1) % BUFFER_SIZE;
   if (count < BUFFER_SIZE)
-    count++; // task 3.1
+    count++;
 }
 
 double bufferAverage(void) {
@@ -121,11 +114,6 @@ void handleColorCal() {
   gState = STATE_INIT;
 }
 
-static bool
-resetButtonPressed(void) { // unused might remove if it doesnt break anything
-  return touchLEDSensor.pressing() || bumpSensor.pressing();
-}
-
 void handleIdle(void) {
   touchLEDSensor.on(white);
   Brain.Screen.clearScreen();
@@ -168,10 +156,13 @@ void handleDecide(void) {
   Action decsion = decide(gWallAhead, gtileColor);
   switch (decsion) {
   case LEFT:
-    gNextDir = static_cast<Heading>((getHeading() - 1) % 4);
+    gNextDir = static_cast<Heading>((getHeading() + 3) % 4);
     break;
   case RIGHT:
     gNextDir = static_cast<Heading>((getHeading() + 1) % 4);
+    break;
+  case REVERSE:
+    gNextDir = static_cast<Heading>((getHeading() + 2) % 4);
     break;
   case IDLE:
     gState = STATE_IDLE;
