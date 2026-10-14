@@ -32,13 +32,13 @@ void mazeInit(int width, int height) {
 }
 
 void plotWalls(int x, int y, Cell cell) {
-  if (cell.wallNorth)
+  if (cell.wallNorth == TRUE)
     API_setWall(x, y, 'n');
-  if (cell.wallEast)
+  if (cell.wallEast == TRUE)
     API_setWall(x, y, 'e');
-  if (cell.wallSouth)
+  if (cell.wallSouth == TRUE)
     API_setWall(x, y, 's');
-  if (cell.wallWest)
+  if (cell.wallWest == TRUE)
     API_setWall(x, y, 'w');
 }
 

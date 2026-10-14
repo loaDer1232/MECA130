@@ -14,13 +14,14 @@ typedef enum Tile {
 
 typedef enum Action { LEFT, FORWARD, RIGHT, IDLE, REVERSE } Action;
 typedef enum Heading { NORTH, EAST, SOUTH, WEST } Heading;
+typedef enum Wall { FALSE, TRUE, UNKNOWN } Wall;
 
 typedef struct Cell {
   Tile type = TILE_UNKNOWN;
-  bool wallNorth;
-  bool wallEast;
-  bool wallSouth;
-  bool wallWest;
+  Wall wallNorth = UNKNOWN;
+  Wall wallEast = UNKNOWN;
+  Wall wallSouth = UNKNOWN;
+  Wall wallWest = UNKNOWN;
   int x;
   int y;
 } Cell;

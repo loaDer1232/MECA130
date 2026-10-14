@@ -4,8 +4,8 @@
 #define WAIT_TIME 200
 
 #define NUM_SURVIVORS 3
-#define NUM_HAZARD 1
-#define NUM_CACHE 3
+#define NUM_HAZARD 0
+#define NUM_CACHE 50
 #define NUM_ASSMBELY 1
 
 #define NUM_RED_TILES NUM_HAZARD

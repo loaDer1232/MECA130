@@ -42,26 +42,31 @@ void updateXY() {
 }
 
 void updateWall(Cell *cell, bool wallFront) {
+  Wall temp;
+  if (wallFront)
+    temp = TRUE;
+  else
+    temp = FALSE;
   switch (heading) {
   case NORTH:
-    cell->wallNorth = wallFront;
-    if (inBounds(x, y + 1)) // [FIX 9]
-      maze[x][y + 1].wallSouth = wallFront;
+    cell->wallNorth = temp;
+    if (inBounds(x, y + 1))
+      maze[x][y + 1].wallSouth = temp;
     break;
   case EAST:
-    cell->wallEast = wallFront;
-    if (inBounds(x + 1, y)) // [FIX 9]
-      maze[x + 1][y].wallWest = wallFront;
+    cell->wallEast = temp;
+    if (inBounds(x + 1, y))
+      maze[x + 1][y].wallWest = temp;
     break;
   case SOUTH:
-    cell->wallSouth = wallFront;
-    if (inBounds(x, y - 1)) // [FIX 9]
-      maze[x][y - 1].wallNorth = wallFront;
+    cell->wallSouth = temp;
+    if (inBounds(x, y - 1))
+      maze[x][y - 1].wallNorth = temp;
     break;
   case WEST:
-    cell->wallWest = wallFront;
-    if (inBounds(x - 1, y)) // [FIX 9]
-      maze[x - 1][y].wallEast = wallFront;
+    cell->wallWest = temp;
+    if (inBounds(x - 1, y))
+      maze[x - 1][y].wallEast = temp;
     break;
   }
 }
@@ -101,22 +106,35 @@ void init() {
   }
 }
 
+static Wall wallAt(Cell *cell, Heading heading) {
+  switch (heading) {
+  case NORTH:
+    return cell->wallNorth;
+  case EAST:
+    return cell->wallEast;
+  case SOUTH:
+    return cell->wallSouth;
+  default:
+    return cell->wallWest;
+  }
+}
+
 static Cell *findNeighbor(Cell *cell, Heading heading) {
   switch (heading) {
   case NORTH:
-    return (!cell->wallNorth && inBounds(cell->x, cell->y + 1))
+    return ((cell->wallNorth != TRUE) && inBounds(cell->x, cell->y + 1))
                ? &maze[cell->x][cell->y + 1]
                : nullptr;
   case EAST:
-    return (!cell->wallEast && inBounds(cell->x + 1, cell->y))
+    return ((cell->wallEast != TRUE) && inBounds(cell->x + 1, cell->y))
                ? &maze[cell->x + 1][cell->y]
                : nullptr;
   case SOUTH:
-    return (!cell->wallSouth && inBounds(cell->x, cell->y - 1))
+    return ((cell->wallSouth != TRUE) && inBounds(cell->x, cell->y - 1))
                ? &maze[cell->x][cell->y - 1]
                : nullptr;
   case WEST:
-    return (!cell->wallWest && inBounds(cell->x - 1, cell->y))
+    return ((cell->wallWest != TRUE) && inBounds(cell->x - 1, cell->y))
                ? &maze[cell->x - 1][cell->y]
                : nullptr;
   }
@@ -196,43 +214,47 @@ static void planPath(Cell *from, Cell *to) {
 }
 
 Action mapCell(bool wallFront, TileColor color, Cell *cell) {
-  if (classifyTile(color) == TILE_HAZARD) {
+  Tile type = classifyTile(color);
+
+  if (type == TILE_HAZARD) {
     cell->type = TILE_HAZARD;
     hazardsFound++;
     updateHeading(REVERSE);
-    updateXY();
+    updateXY(); // see note below
     return REVERSE;
   }
-  static int loop = 0;
-  if (loop < 4) {
-    updateWall(cell, wallFront);
+
+  updateWall(cell, wallFront);
+
+  Heading right = static_cast<Heading>((heading + 1) % 4);
+  Heading behind = static_cast<Heading>((heading + 2) % 4);
+  Heading left = static_cast<Heading>((heading + 3) % 4);
+
+  if (wallAt(cell, right) == UNKNOWN || wallAt(cell, behind) == UNKNOWN) {
     updateHeading(RIGHT);
-    loop++;
     return RIGHT;
   }
-  loop = 0;
-  cell->type = classifyTile(color);
-  if (cell->type != TILE_NORMAL) {
-    switch (cell->type) {
-    case TILE_HAZARD:
-      hazardsFound++;
-      break;
-    case TILE_SURVIVOR:
-      survivorsFound++;
-      break;
-    case TILE_CACHE:
-      cachesFound++;
-      break;
-    case TILE_ASSEMBLY:
-      assmeblyTile.found = true;
-      assmeblyTile.cell = cell;
-      break;
-    default:
-      break;
-    }
+  if (wallAt(cell, left) == UNKNOWN) {
+    updateHeading(LEFT);
+    return LEFT;
   }
-  return IDLE; // "mapping finished"; decide() carries on planning (see [FIX
-               // 2])
+
+  cell->type = type;
+  switch (type) {
+  case TILE_SURVIVOR:
+    survivorsFound++;
+    break;
+  case TILE_CACHE:
+    cachesFound++;
+    break;
+  case TILE_ASSEMBLY:
+    assmeblyTile.found = true;
+    assmeblyTile.cell = cell;
+    break;
+  default:
+    break;
+  }
+  return IDLE;
 }
 
 Cell *exploring(Cell *currentCell) {
