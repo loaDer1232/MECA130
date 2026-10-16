@@ -98,6 +98,14 @@ void init() {
       for (int j = 0; j < MAZE_HEIGHT; j++) {
         maze[i][j].x = i;
         maze[i][j].y = j;
+        if (maze[i][j].x == 0)
+          maze[i][j].wallWest = TRUE;
+        if (maze[i][j].x == MAZE_WIDTH)
+          maze[i][j].wallEast = TRUE;
+        if (maze[i][j].y == 0)
+          maze[i][j].wallSouth = TRUE;
+        if (maze[i][j].y == MAZE_HEIGHT)
+          maze[i][j].wallNorth = TRUE;
       }
     }
     push(&edgeNodes, &maze[0][0]);
