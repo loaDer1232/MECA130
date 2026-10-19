@@ -3,6 +3,9 @@
 
 #define WAIT_TIME 200
 
+#define MAZE_HEIGHT 16
+#define MAZE_WIDTH 16
+
 #define NUM_SURVIVORS 3
 #define NUM_HAZARD 0
 #define NUM_CACHE 5

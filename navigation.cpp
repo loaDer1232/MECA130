@@ -4,9 +4,6 @@
 #include "GlobalDefs.h"
 #include <string.h>
 
-#define MAZE_HEIGHT 16
-#define MAZE_WIDTH 16
-
 Cell maze[MAZE_HEIGHT][MAZE_WIDTH];
 
 int cachesFound = 0;
