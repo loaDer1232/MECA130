@@ -12,7 +12,6 @@ using namespace vex;
 #define BLACK_MARGIN 5      // headroom above the calibrated black level
 #define BLACK_THRESH_MIN 2  // clamps, so one bad placement can neither swallow
 #define BLACK_THRESH_MAX 40 // the whole course into BLACK nor lose the tile
-
 #define DEFAULT_HUE_TOL 25 //hue band when colorCal is skipped
 #define COLOR_RED CAL_RED
 #define COLOR_GREEN CAL_GREEN
@@ -39,7 +38,6 @@ enum CalColor {
 struct HueCalibration {
   double center;    // mean hue of the tile, kept in [0, 360)
   double tolerance; // half-width of the accepted band, in degrees
-  double brightness;// just in case we need it later
 };
 
 // Hardware defined in .cpp)
@@ -55,8 +53,7 @@ extern vex::bumper bumpSensor;
 void handleColorCal(void);
 TileColor classifyTileColor(double hue, double bright);
 void colorCal();
-void loadDefaultCal(void); 
-
+void loadDefaultCol();
 
 // Hue math
 double wrapHue(double h);
