@@ -52,6 +52,8 @@ extern vex::bumper bumpSensor;
 // Shared Maze functions
 void handleColorCal(void);
 TileColor classifyTileColor(double hue, double bright);
+void colorCal();
+
 
 // Hue math
 double wrapHue(double h);
