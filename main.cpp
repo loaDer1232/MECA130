@@ -174,7 +174,7 @@ void screen(float avgDist) {
 // --- Handlers ---
 
 void handleInit(void) {
-  touchLEDSensor.on(purple);
+  touchLEDSensor.on(white);
   // Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("Calibrating...");
@@ -195,15 +195,26 @@ void handleIdle(void) {
   touchLEDSensor.on(white);
   Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("Press to start");
-
+  Brain.Screen.print("Press LED to start");
+  Brain.Screen.setCursor(2, 1);
+  Brain.Screen.print("Press Bumper to");
+  Brain.Screen.setCursor(3, 1);
+  Brain.Screen.print("use preset defaults");
   if (touchLEDSensor.pressing()) {
     gState = STATE_COLOR_CHECK;
   }
+  else if (bumpSensor.pressing()) {    
+  Brain.Screen.clearScreen();
+  Brain.Screen.setCursor(1, 1);
+  Brain.Screen.print("Using Defaults");
+  wait(WAIT_TIME*5);
+    loadDefaultCol();                    //fills gCal from defColor array
+    gState = STATE_COLOR_CHECK;
+}
 }
 
 void handlecolorCheck(void) {
-  touchLEDSensor.on(blue);
+  touchLEDSensor.on(purple);
   gtileColor =
       classifyTileColor(opticalSensor.hue(), opticalSensor.brightness());
 

@@ -5,16 +5,22 @@
 
 HueCalibration gCal[COLOR_COUNT];
 
-float defColor[7][2] = {
-  {0,0},
-  {14,56},
-  {76,37},
-  {232,38},
-  {35,88},
-  {43,100},
-  {38,13}
-};
+float defColor[6][2] = {  
+  {14,56}, //red
+  {76,37}, //green
+  {232,38},//blue
+  {35,88}, //yellow
+  {43,100},//white
+  {38,13}  //black
+};  //brightness may be unnessary
 
+void loadDefaultCol(void) {
+  for (int i= 0; i < COLOR_COUNT; i++) {
+    gCal[i].center = defColor[i][0];                          //set default hue=center from array ignored for black
+    gCal[i].tolerance = (i==COLOR_BLACK) ? DEFAULT_HUE_TOL;   //no measured spread
+    gCal[i].brightness = defColor[i][1];                      //brightness if needed later
+  }
+}
 // ---------------------------------------------------------------------------
 // Hue math
 // ---------------------------------------------------------------------------
@@ -97,8 +103,10 @@ HueCalibration calibrateBlackBrightness(void) {
 // comes from the black calibration step; BRIGHT_LOW is the fallback for when
 // that step was skipped.
 double blackThreshold() {
-  return (gCal[COLOR_BLACK].tolerance > 0.0) ? gCal[COLOR_BLACK].center
-                                             : (double)BRIGHT_LOW;
+  if (gCal [COLOR_BLACK].TOLERANCE > 0.0) {
+  return gCal[COLOR_BLACK].center;
+  }
+ return (double)BRIGHT_LOW;
 }
 
 // ---------------------------------------------------------------------------
