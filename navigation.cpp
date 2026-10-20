@@ -221,29 +221,58 @@ static void planPath(Cell *from, Cell *to) {
 Action mapCell(bool wallFront, TileColor color, Cell *cell) {
   Tile type = classifyTile(color);
 
+  // 1. Handle Hazards immediately (back up and turn around)
   if (type == TILE_HAZARD) {
     cell->type = TILE_HAZARD;
     hazardsFound++;
     updateHeading(REVERSE);
-    updateXY(); // see note below
     return REVERSE;
   }
 
+  // 2. Update current cell walls based on sensor data
   updateWall(cell, wallFront);
 
+  // Define relative directions based on current heading
+  Heading front = heading;
   Heading right = static_cast<Heading>((heading + 1) % 4);
   Heading behind = static_cast<Heading>((heading + 2) % 4);
   Heading left = static_cast<Heading>((heading + 3) % 4);
 
-  if (wallAt(cell, right) == UNKNOWN || wallAt(cell, behind) == UNKNOWN) {
+  // 3. Optimal Exploration Priority: Front -> Right -> Left -> Back
+  
+  // If the path ahead is clear and unmapped, keep driving straight (IDLE = drive forward)
+  if (!wallFront && wallAt(cell, front) == UNKNOWN) {
+    return IDLE;
+  }
+
+float defColor[7][2] = {
+  {0,0},
+  {14,56},
+  {76,37},
+  {232,38},
+  {35,88},
+  {43,100},
+  {38,13}
+};
+  // Check Right for unknown walls/paths
+  if (wallAt(cell, right) == UNKNOWN) {
     updateHeading(RIGHT);
     return RIGHT;
   }
+
+  // Check Left for unknown walls/paths
   if (wallAt(cell, left) == UNKNOWN) {
     updateHeading(LEFT);
     return LEFT;
   }
 
+  // Check Behind (if unknown, perform a U-turn / REVERSE)
+  if (wallAt(cell, behind) == UNKNOWN) {
+    updateHeading(REVERSE);
+    return REVERSE;
+  }
+
+  // 4. If all local directions are known, log tile type and continue exploring
   cell->type = type;
   switch (type) {
   case TILE_SURVIVOR:
@@ -259,7 +288,15 @@ Action mapCell(bool wallFront, TileColor color, Cell *cell) {
   default:
     break;
   }
-  return IDLE;
+  
+  // If path ahead is clear, continue forward
+  if (!wallFront) {
+    return IDLE;
+  }
+  
+  // Default fallback if blocked ahead: turn right to look for alternative paths
+  updateHeading(RIGHT);
+  return RIGHT;
 }
 
 Cell *exploring(Cell *currentCell) {
@@ -292,7 +329,6 @@ Action decide(bool wallFront, TileColor color) {
     Action mapAction = mapCell(wallFront, color, currentCell);
     if (mapAction != IDLE) // still spinning to look at the walls
       return mapAction;
-    // returning IDLE. IDLE from decide() now only ever means "finished".
   }
 
   if (isEmpty(&actions)) {
