@@ -78,9 +78,14 @@ int main() {
       API_turnRight();
       debug_log(const_cast<char *>("Turing right"));
       break;
+    case FLIP:
+      API_turnRight();
+      API_turnRight();
+      break;
     case REVERSE:
       API_turnRight();
       API_turnRight();
+      API_moveForward();
       break;
     case IDLE:
       debug_log(const_cast<char *>("Exploration finished"));

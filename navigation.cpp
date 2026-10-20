@@ -77,6 +77,7 @@ void updateHeading(Action direction) {
     heading = static_cast<Heading>((heading + 1) % 4);
     break;
   case REVERSE:
+  case FLIP:
     heading = static_cast<Heading>((heading + 2) % 4);
   default:
     break;
@@ -250,8 +251,8 @@ Action mapCell(bool wallFront, TileColor color, Cell *cell) {
 
   // Check Behind (if unknown, perform a U-turn / REVERSE)
   if (wallAt(cell, behind) == UNKNOWN) {
-    updateHeading(REVERSE);
-    return REVERSE;
+    updateHeading(FLIP);
+    return FLIP;
   }
 
   // 4. If all local directions are known, log tile type and continue exploring

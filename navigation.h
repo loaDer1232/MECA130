@@ -12,7 +12,7 @@ typedef enum Tile {
   TILE_UNKNOWN
 } Tile;
 
-typedef enum Action { LEFT, FORWARD, RIGHT, IDLE, REVERSE } Action;
+typedef enum Action { LEFT, FORWARD, RIGHT, IDLE, REVERSE, FLIP } Action;
 typedef enum Heading { NORTH, EAST, SOUTH, WEST } Heading;
 typedef enum Wall { FALSE, TRUE, UNKNOWN } Wall;
 
