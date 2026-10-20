@@ -13,11 +13,11 @@
 #define LOOP_DELAY 200
 
 #define WALL_SET_MM 300
-#define WALL_CLEAR_MM 320
+#define WALL_CLEAR_MM 390
 #define SCREEN_RESET_X 1
 #define SCREEN_RESET_Y 1
 
-#define BUFFER_SIZE 3
+#define BUFFER_SIZE 5
 
 #define QUARTER_TURN 90
 
@@ -26,7 +26,7 @@
 #define WHEEL_CIRCUMFERENCE (3.14159 * WHEEL_DIAMETER_MM)
 #define TRACK_WIDTH_MM 18.63
 #define WHEEL_BASE_MM 121.7
-#define CELL_SIZE_MM 300.0 // adjust to r/w measurement
+#define CELL_SIZE_MM 400.0 // adjust to r/w measurement
 
 #define INERTIAL_TOLERANCE 2
 
@@ -62,6 +62,10 @@ int writeIndex = 0;
 int count = 0;
 
 void bufferWrite(double value) {
+  // Ignore invalid/out-of-range sensor readings (0 or max range)
+  if (value <= 0)
+    return;
+
   buffer[writeIndex] = value;
   writeIndex = (writeIndex + 1) % BUFFER_SIZE;
   if (count < BUFFER_SIZE)
@@ -69,6 +73,9 @@ void bufferWrite(double value) {
 }
 
 double bufferAverage(void) {
+  if (count == 0)
+    return 0.0; // Prevent division by zero
+
   double total = 0.0;
   for (int i = 0; i < count; i++) {
     total += buffer[i];
@@ -77,13 +84,17 @@ double bufferAverage(void) {
 }
 
 bool updateWallDetection(double avg) {
-  static bool wallDetected;
+  static bool wallDetected = false;
+
+  // If avg is 0, the sensor isn't seeing anything valid
+  if (avg == 0)
+    return false;
+
   if (wallDetected) {
     if (avg > WALL_CLEAR_MM)
       wallDetected = false;
-  } else {
-    if (avg < WALL_SET_MM)
-      wallDetected = true;
+  } else if (avg < WALL_SET_MM) {
+    wallDetected = true;
   }
   return wallDetected;
 }
@@ -91,8 +102,59 @@ bool updateWallDetection(double avg) {
 RobotState gState = STATE_COLOR_CAL;
 TileColor gtileColor;
 
-static Heading gNextDir = getHeading();
+static Heading lastHeading = getHeading();
 static bool gWallAhead = false;
+static Heading targetHeading = getHeading();
+
+void screen(float avgDist) {
+  Info info = getInfo();
+
+  // FIX: Use a single const char pointer and provide a default value
+  const char *str = "UN";
+
+  switch (info.cell.type) {
+  case TILE_NORMAL:
+    str = "Normal";
+    break;
+  case TILE_START:
+    str = "Start";
+    break;
+  case TILE_HAZARD:
+    touchLEDSensor.setBlink(red, 0.25, 0.25);
+    wait(400, msec);
+    str = "Hazard";
+    break;
+  case TILE_ASSEMBLY:
+    touchLEDSensor.setBlink(green, 0.25, 0.25);
+    wait(400, msec);
+    str = "Asm";
+    break;
+  case TILE_SURVIVOR:
+    touchLEDSensor.setBlink(blue, 0.25, 0.25);
+    wait(400, msec);
+    str = "Dude";
+    break;
+  case TILE_CACHE:
+    touchLEDSensor.setBlink(yellow, 0.25, 0.25);
+    wait(400, msec);
+    str = "Cache";
+    break;
+  case TILE_UNKNOWN:
+  default:
+    str = "UN";
+    break;
+  }
+  touchLEDSensor.setBrightness(0);
+  Brain.Screen.clearScreen();
+  Brain.Screen.setCursor(1, 1);
+  Brain.Screen.print("Dist: %.1f", avgDist);
+  Brain.Screen.setCursor(2, 1);
+  Brain.Screen.print("wall: %d", gWallAhead);
+  Brain.Screen.setCursor(3, 1);
+  Brain.Screen.print("x: %d, y: %d", info.cell.x, info.cell.y);
+  Brain.Screen.setCursor(4, 1);
+  Brain.Screen.print("Type: %s", str);
+}
 
 // --- Handlers ---
 
@@ -130,10 +192,6 @@ void handlecolorCheck(void) {
   gtileColor =
       classifyTileColor(opticalSensor.hue(), opticalSensor.brightness());
 
-  Brain.Screen.clearScreen();
-  Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("Tile: %d", gtileColor);
-
   // EXTENSION POINT 2: objective handler states branch from here
   gState = STATE_WALL_CHECK;
 }
@@ -141,71 +199,48 @@ void handlecolorCheck(void) {
 void handleWallCheck(void) {
   touchLEDSensor.on(blue_green);
 
-  // The robot is stationary here, so averaging is valid
-  for (int i = 0; i < BUFFER_SIZE; i++) {
-    bufferWrite(distanceSensor.objectDistance(mm));
-    wait(WAIT_TIME, msec);
-  }
-  gWallAhead = updateWallDetection(bufferAverage());
+  // Reset or clear count if you want a fresh sample set every check,
+  // or keep it rolling. (Here we reset count to take a fresh 50 samples):
+  count = 0;
+  writeIndex = 0;
 
+  // The robot is stationary here, so averaging is valid
+  for (int i = 0; i < BUFFER_SIZE; i++) { // Fixed: changed <= to <
+    bufferWrite(distanceSensor.objectDistance(mm));
+    wait(WAIT_TIME / BUFFER_SIZE, msec);
+  }
+
+  double avgDist = bufferAverage();
+  gWallAhead = updateWallDetection(avgDist);
+  screen(avgDist);
   gState = STATE_DECIDE;
 }
 
 void handleDecide(void) {
   touchLEDSensor.on(yellow);
-  Action decsion = decide(gWallAhead, gtileColor);
-  switch (decsion) {
-  case LEFT:
-    gNextDir = static_cast<Heading>((getHeading() + 3) % 4);
-    break;
-  case RIGHT:
-    gNextDir = static_cast<Heading>((getHeading() + 1) % 4);
-    break;
-  case REVERSE:
-    gNextDir = static_cast<Heading>((getHeading() + 2) % 4);
-    break;
-  case IDLE:
-    gState = STATE_IDLE;
-    return;
-  default:
-    gNextDir = getHeading();
-  }
+
+  Action decision = decide(gWallAhead, gtileColor);
+
+  targetHeading = getHeading(); // Or whatever property holds the next heading
+                                // from your navigation module
+
   gState = STATE_MOVE;
 }
 
 void handleMove(void) {
   touchLEDSensor.on(green);
 
-  if (gNextDir != getHeading()) {
-    Drivetrain.turnToRotation((int)gNextDir * QUARTER_TURN, degrees);
-    gNextDir = getHeading();
+  // If the target heading is different from our last heading, turn first
+  if (lastHeading != targetHeading) {
+    Drivetrain.turnToRotation((int)targetHeading * QUARTER_TURN, degrees);
+    lastHeading = targetHeading; // Update lastHeading only after turning
   } else {
+    // Otherwise, drive forward by one cell
     Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
   }
+
   // EXTENSION POINT 3: collision detection goes here
   gState = STATE_COLOR_CHECK;
-}
-void handleRecovery(void) { // recovery
-  // Drivetrain.stop();
-
-  // touchLEDSensor.setBlink(orange, 1, 1);
-  // Brain.Screen.setCursor(1, 1);
-  // Brain.Screen.print("Trying to recover");
-  // do {
-  //   Drivetrain.setDriveVelocity(50, percent);
-  //   Drivetrain.driveFor(reverse, 150);
-  //   double d1 = 0;                          // distance measurement 1
-  //   double d2 = 0;                          // distance measurement 2
-  //   d1 = distanceSensor.objectDistance(mm); // distance to wall1
-  //   Drivetrain.turnFor(left, 45, deg, 30, percent);
-  //   d2 = distanceSensor.objectDistance(mm); // distance to wall2
-  //   if (d2 > d1) {
-  //     hitWall(RIGHT); // recovery from wallhit
-  //   } else {
-  //     hitWall(LEFT);
-  //   };
-  //   wait(2000, msec);
-  // }
 }
 
 void handleError(void) {
@@ -259,6 +294,8 @@ void runStateMachine(void) {
 
 int main() {
   opticalSensor.setLight(ledState::on);
+  Drivetrain.setTurnVelocity(TURN_SPEED, percent);
+  Drivetrain.setDriveVelocity(DRIVE_SPEED, percent);
   while (1) {
     runStateMachine();
     wait(LOOP_DELAY, msec);
