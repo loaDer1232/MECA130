@@ -3,14 +3,14 @@
 
 #define WAIT_TIME 200
 
-#define MAZE_HEIGHT 20
-#define MAZE_WIDTH 20
+#define MAZE_HEIGHT 16
+#define MAZE_WIDTH 16
 #define DRIVE_SPEED 72
 #define TURN_SPEED 92
 
-#define NUM_SURVIVORS 2
-#define NUM_HAZARD 1
-#define NUM_CACHE 1
+#define NUM_SURVIVORS 3
+#define NUM_HAZARD 0
+#define NUM_CACHE 5
 #define NUM_ASSMBELY 1
 
 #define NUM_RED_TILES NUM_HAZARD

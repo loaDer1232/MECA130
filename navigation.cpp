@@ -221,39 +221,21 @@ static void planPath(Cell *from, Cell *to) {
 Action mapCell(bool wallFront, TileColor color, Cell *cell) {
   Tile type = classifyTile(color);
 
-  // 1. Handle Hazards immediately (back up and turn around)
   if (type == TILE_HAZARD) {
     cell->type = TILE_HAZARD;
     hazardsFound++;
     updateHeading(REVERSE);
+    updateXY();
     return REVERSE;
   }
 
-  // 2. Update current cell walls based on sensor data
   updateWall(cell, wallFront);
 
-  // Define relative directions based on current heading
   Heading front = heading;
   Heading right = static_cast<Heading>((heading + 1) % 4);
   Heading behind = static_cast<Heading>((heading + 2) % 4);
   Heading left = static_cast<Heading>((heading + 3) % 4);
 
-  // 3. Optimal Exploration Priority: Front -> Right -> Left -> Back
-  
-  // If the path ahead is clear and unmapped, keep driving straight (IDLE = drive forward)
-  if (!wallFront && wallAt(cell, front) == UNKNOWN) {
-    return IDLE;
-  }
-
-float defColor[7][2] = {
-  {0,0},
-  {14,56},
-  {76,37},
-  {232,38},
-  {35,88},
-  {43,100},
-  {38,13}
-};
   // Check Right for unknown walls/paths
   if (wallAt(cell, right) == UNKNOWN) {
     updateHeading(RIGHT);
@@ -288,15 +270,7 @@ float defColor[7][2] = {
   default:
     break;
   }
-  
-  // If path ahead is clear, continue forward
-  if (!wallFront) {
-    return IDLE;
-  }
-  
-  // Default fallback if blocked ahead: turn right to look for alternative paths
-  updateHeading(RIGHT);
-  return RIGHT;
+  return IDLE;
 }
 
 Cell *exploring(Cell *currentCell) {
@@ -345,8 +319,6 @@ Action decide(bool wallFront, TileColor color) {
       } else {
         targetCell = assmeblyTile.cell;
       }
-    } else if (assmeblyTile.found && currentCell->type == TILE_SURVIVOR) {
-      targetCell = assmeblyTile.cell; // carry survivor to assembly
     } else {
       targetCell = exploring(currentCell);
     }

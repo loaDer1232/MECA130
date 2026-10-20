@@ -109,7 +109,6 @@ static Heading targetHeading = getHeading();
 void screen(float avgDist) {
   Info info = getInfo();
 
-  // FIX: Use a single const char pointer and provide a default value
   const char *str = "UN";
 
   switch (info.cell.type) {
@@ -216,30 +215,24 @@ void handleWallCheck(void) {
   gState = STATE_DECIDE;
 }
 
+static Action gAction = IDLE;
+
 void handleDecide(void) {
   touchLEDSensor.on(yellow);
-
-  Action decision = decide(gWallAhead, gtileColor);
-
-  targetHeading = getHeading(); // Or whatever property holds the next heading
-                                // from your navigation module
-
-  gState = STATE_MOVE;
+  gAction = decide(gWallAhead, gtileColor);
+  targetHeading = getHeading();
+  gState = (gAction == IDLE) ? STATE_IDLE : STATE_MOVE;
 }
 
 void handleMove(void) {
   touchLEDSensor.on(green);
-
-  // If the target heading is different from our last heading, turn first
   if (lastHeading != targetHeading) {
     Drivetrain.turnToRotation((int)targetHeading * QUARTER_TURN, degrees);
-    lastHeading = targetHeading; // Update lastHeading only after turning
-  } else {
-    // Otherwise, drive forward by one cell
+    lastHeading = targetHeading;
+  }
+  if (gAction == FORWARD || gAction == REVERSE) {
     Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
   }
-
-  // EXTENSION POINT 3: collision detection goes here
   gState = STATE_COLOR_CHECK;
 }
 
