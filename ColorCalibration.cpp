@@ -5,6 +5,16 @@
 
 HueCalibration gCal[COLOR_COUNT];
 
+float defColor[7][2] = {
+  {0,0},
+  {14,56},
+  {76,37},
+  {232,38},
+  {35,88},
+  {43,100},
+  {38,13}
+};
+
 // ---------------------------------------------------------------------------
 // Hue math
 // ---------------------------------------------------------------------------
@@ -225,6 +235,8 @@ static const int CAL_STEPS = (int)(sizeof(gCalOrder) / sizeof(gCalOrder[0]));
 // tile that should be left at the sensor's default value. The wrapped hue logic
 // is retained so red's 0/360 seam does not split the calibration band.
 void colorCal(void) {
+    double hue = opticalSensor.hue();
+    double bright = opticalSensor.brightness();
   for (int i = 0; i < COLOR_COUNT; i++) {
     gCal[i].center = 0.0;
     gCal[i].tolerance = 0.0;
@@ -235,21 +247,14 @@ void colorCal(void) {
     bool done = false;
     const char *status = "CHECK";
 
-    // Bumper held down at the first step: skip the whole calibration.
-    if (target == COLOR_BLACK && bumpSensor.pressing()) {
-      Brain.Screen.clearScreen();
-      Brain.Screen.setCursor(1, 1);
-      Brain.Screen.print("Skip calibration");
-      return;
-    }
-
+    
     touchLEDSensor.on(calLedColor(target));
 
     while (!done) {
       double hue = opticalSensor.hue();
       double bright = opticalSensor.brightness();
       TileColor predicted = classifyTileColor(hue, bright);
-
+    
       Brain.Screen.clearScreen();
       Brain.Screen.setCursor(1, 1);
       Brain.Screen.print("CAL %s %s", colorName(target), status);
@@ -268,6 +273,15 @@ void colorCal(void) {
       Brain.Screen.setCursor(5, 1);
       Brain.Screen.print("Tile=%s", tileColorName(predicted));
 
+      // Bumper held down at the first step: skip the whole calibration.
+    if (target == COLOR_BLACK && bumpSensor.pressing()) {
+      Brain.Screen.clearScreen();
+      Brain.Screen.setCursor(1, 1);
+      Brain.Screen.print("Skip calibration");
+      Brain.Screen.setCursor(2, 1);
+      Brain.Screen.print("H:%3d B:%3d", (int)hue, (int)bright);
+      return;
+    }
       if (bumpSensor.pressing()) {
         status = "SKIP";
         done = true;
