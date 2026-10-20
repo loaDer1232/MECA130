@@ -272,11 +272,17 @@ void handleError(void) {
   touchLEDSensor.on(red);
   // I dont like that I am calling for the debug object I made
   Info info = getInfo();
+  Brain.Screen.setCursor(2, 1);
+  Brain.Screen.print("x: %d, y: %d", info.cell.x, info.cell.y);
+  Brain.Screen.setCursor(3, 1);
   Brain.Screen.print("place on center of %i, %i faceing %c", info.cell.x,
                      info.cell.y, info.heading);
   while (!touchLEDSensor.pressing())
+  brainInertial.calibrate();
+  do {
     wait(WAIT_TIME, msec);
-
+  } while (brainInertial.isCalibrating());
+  
   // Enters loop agian at correct XY
   gState = STATE_COLOR_CHECK;
 }
