@@ -5,22 +5,17 @@
 
 HueCalibration gCal[COLOR_COUNT];
 
-float defColor[6][2] = {  
-  {14,56}, //red
-  {76,37}, //green
-  {232,38},//blue
-  {35,88}, //yellow
-  {43,100},//white
-  {38,13}  //black
-};  //brightness may be unnessary
+float defColor[7][2] = {{14, 56}, {76, 37},  {232, 38},
+                        {35, 88}, {43, 100}, {38, 13}};
+#define DEFAULT_HUE_TOL 20 // degrees; no measured spread (tune this)
 
 void loadDefaultCol(void) {
-  for (int i= 0; i < COLOR_COUNT; i++) {
-    gCal[i].center = defColor[i][0];                          //set default hue=center from array ignored for black
-    gCal[i].tolerance = (i==COLOR_BLACK) ? DEFAULT_HUE_TOL;   //no measured spread
-    gCal[i].brightness = defColor[i][1];                      //brightness if needed later
+  for (int i = 0; i < COLOR_COUNT; i++) {
+    gCal[i].center = defColor[i][0]; // hue; ignored for black
+    gCal[i].tolerance = (i == COLOR_BLACK) ? 0.0 : DEFAULT_HUE_TOL;
   }
 }
+
 // ---------------------------------------------------------------------------
 // Hue math
 // ---------------------------------------------------------------------------
@@ -103,10 +98,8 @@ HueCalibration calibrateBlackBrightness(void) {
 // comes from the black calibration step; BRIGHT_LOW is the fallback for when
 // that step was skipped.
 double blackThreshold() {
-  if (gCal [COLOR_BLACK].TOLERANCE > 0.0) {
-  return gCal[COLOR_BLACK].center;
-  }
- return (double)BRIGHT_LOW;
+  return (gCal[COLOR_BLACK].tolerance > 0.0) ? gCal[COLOR_BLACK].center
+                                             : (double)BRIGHT_LOW;
 }
 
 // ---------------------------------------------------------------------------
@@ -243,8 +236,8 @@ static const int CAL_STEPS = (int)(sizeof(gCalOrder) / sizeof(gCalOrder[0]));
 // tile that should be left at the sensor's default value. The wrapped hue logic
 // is retained so red's 0/360 seam does not split the calibration band.
 void colorCal(void) {
-    double hue = opticalSensor.hue();
-    double bright = opticalSensor.brightness();
+  double hue = opticalSensor.hue();
+  double bright = opticalSensor.brightness();
   for (int i = 0; i < COLOR_COUNT; i++) {
     gCal[i].center = 0.0;
     gCal[i].tolerance = 0.0;
@@ -255,14 +248,13 @@ void colorCal(void) {
     bool done = false;
     const char *status = "CHECK";
 
-    
     touchLEDSensor.on(calLedColor(target));
 
     while (!done) {
       double hue = opticalSensor.hue();
       double bright = opticalSensor.brightness();
       TileColor predicted = classifyTileColor(hue, bright);
-    
+
       Brain.Screen.clearScreen();
       Brain.Screen.setCursor(1, 1);
       Brain.Screen.print("CAL %s %s", colorName(target), status);
@@ -282,14 +274,14 @@ void colorCal(void) {
       Brain.Screen.print("Tile=%s", tileColorName(predicted));
 
       // Bumper held down at the first step: skip the whole calibration.
-    if (target == COLOR_BLACK && bumpSensor.pressing()) {
-      Brain.Screen.clearScreen();
-      Brain.Screen.setCursor(1, 1);
-      Brain.Screen.print("Skip calibration");
-      Brain.Screen.setCursor(2, 1);
-      Brain.Screen.print("H:%3d B:%3d", (int)hue, (int)bright);
-      return;
-    }
+      if (target == COLOR_BLACK && bumpSensor.pressing()) {
+        Brain.Screen.clearScreen();
+        Brain.Screen.setCursor(1, 1);
+        Brain.Screen.print("Skip calibration");
+        Brain.Screen.setCursor(2, 1);
+        Brain.Screen.print("H:%3d B:%3d", (int)hue, (int)bright);
+        return;
+      }
       if (bumpSensor.pressing()) {
         status = "SKIP";
         done = true;
