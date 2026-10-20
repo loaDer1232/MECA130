@@ -99,6 +99,30 @@ bool updateWallDetection(double avg) {
   return wallDetected;
 }
 
+static bool flashed[MAZE_WIDTH][MAZE_HEIGHT] = {{false}};
+static void flashTile(TileColor c) {
+  color led;
+  switch (c) {
+  case RED:
+    led = red;
+    break;
+  case GREEN:
+    led = green;
+    break;
+  case BLUE:
+    led = blue;
+    break;
+  case YELLOW:
+    led = yellow;
+    break;
+  default:
+    return; // black / white: nothing to report
+  }
+  touchLEDSensor.setBlink(led, 0.25, 0.25);
+  wait(800, msec);
+  touchLEDSensor.setBrightness(0);
+}
+
 RobotState gState = STATE_COLOR_CAL;
 TileColor gtileColor;
 
@@ -119,23 +143,15 @@ void screen(float avgDist) {
     str = "Start";
     break;
   case TILE_HAZARD:
-    touchLEDSensor.setBlink(red, 0.25, 0.25);
-    wait(400, msec);
     str = "Hazard";
     break;
   case TILE_ASSEMBLY:
-    touchLEDSensor.setBlink(green, 0.25, 0.25);
-    wait(400, msec);
     str = "Asm";
     break;
   case TILE_SURVIVOR:
-    touchLEDSensor.setBlink(blue, 0.25, 0.25);
-    wait(400, msec);
     str = "Dude";
     break;
   case TILE_CACHE:
-    touchLEDSensor.setBlink(yellow, 0.25, 0.25);
-    wait(400, msec);
     str = "Cache";
     break;
   case TILE_UNKNOWN:
@@ -159,7 +175,7 @@ void screen(float avgDist) {
 
 void handleInit(void) {
   touchLEDSensor.on(purple);
-  Brain.Screen.clearScreen();
+  // Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("Calibrating...");
 
@@ -191,20 +207,23 @@ void handlecolorCheck(void) {
   gtileColor =
       classifyTileColor(opticalSensor.hue(), opticalSensor.brightness());
 
+  Info info = getInfo(); // cell the robot is standing on
+  if (!flashed[info.cell.x][info.cell.y]) {
+    flashed[info.cell.x][info.cell.y] = true;
+    flashTile(gtileColor);
+  }
+
   // EXTENSION POINT 2: objective handler states branch from here
   gState = STATE_WALL_CHECK;
 }
 
 void handleWallCheck(void) {
   touchLEDSensor.on(blue_green);
-
-  // Reset or clear count if you want a fresh sample set every check,
-  // or keep it rolling. (Here we reset count to take a fresh 50 samples):
   count = 0;
   writeIndex = 0;
 
   // The robot is stationary here, so averaging is valid
-  for (int i = 0; i < BUFFER_SIZE; i++) { // Fixed: changed <= to <
+  for (int i = 0; i < BUFFER_SIZE; i++) {
     bufferWrite(distanceSensor.objectDistance(mm));
     wait(WAIT_TIME / BUFFER_SIZE, msec);
   }
