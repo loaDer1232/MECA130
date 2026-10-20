@@ -159,7 +159,7 @@ void screen(float avgDist) {
 
 void handleInit(void) {
   touchLEDSensor.on(purple);
-  // Brain.Screen.clearScreen();
+  Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("Calibrating...");
 
