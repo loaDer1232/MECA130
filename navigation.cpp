@@ -3,7 +3,6 @@
 #include "./dataStructs/Stack.h"
 #include "GlobalDefs.h"
 #include <string.h>
-#include <math.h>
 
 Cell maze[MAZE_HEIGHT][MAZE_WIDTH];
 
@@ -16,15 +15,6 @@ int x = 0;
 int y = 0;
 
 Heading heading = NORTH;
-
-// double calculateOffset(double r1, double r2, double Adeg){    //aDeg filler for turn degrees
-//  double aRad = aDeg *(PI/180);           //a degree to a radian converstion 2 use later
-//  double y_comp = r1 - (r2* cos(aRad));   //pull r1 and r2 from dist sweep measurments and pass to this func
-//  double x_comp = r2 * (sin(aRad));
-//  double offsetRad = atan2(y_comp, x_comp); //atan2 better with sensor slips and positive vs neg angles
-//  double offsetDeg = offsetRad * (180/PI); //because c uses radians 
-//  return offsetDeg;
-// }
 
 // checks if cell inbounds
 static bool inBounds(int cellX, int cellY) {
