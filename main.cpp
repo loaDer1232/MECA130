@@ -180,9 +180,9 @@ void handleInit(void) {
   Brain.Screen.print("Calibrating...");
 
   brainInertial.calibrate();
-  do {
+  while (brainInertial.isCalibrating()){
     wait(WAIT_TIME, msec);
-  } while (brainInertial.isCalibrating());
+  } 
   gState = STATE_IDLE;
 }
 
@@ -207,8 +207,9 @@ void handleIdle(void) {
   Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("Using Defaults");
-  wait(WAIT_TIME*5);
+  wait(WAIT_TIME,msec);
     loadDefaultCol();                    //fills gCal from defColor array
+    
     gState = STATE_COLOR_CHECK;
 }
 }
@@ -271,7 +272,7 @@ void handleError(void) {
 
   touchLEDSensor.on(red);
   // I dont like that I am calling for the debug object I made
-  Info info = getInfo();
+  Info info = getInfo();wait(WAIT_TIME,msec);
   Brain.Screen.setCursor(2, 1);
   Brain.Screen.print("x: %d, y: %d", info.cell.x, info.cell.y);
   Brain.Screen.setCursor(3, 1);
