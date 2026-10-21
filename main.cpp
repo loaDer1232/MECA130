@@ -12,6 +12,8 @@
 
 #define LOOP_DELAY 200
 
+#define CAL_DIST 94
+
 #define WALL_SET_MM 300
 #define WALL_CLEAR_MM 390
 #define SCREEN_RESET_X 1
@@ -60,6 +62,23 @@ bumper bumpSensor = bumper(PORT11);
 double buffer[BUFFER_SIZE];
 int writeIndex = 0;
 int count = 0;
+
+double offsetCalc(double h1, double h2) {
+  double numer = (h2 * cos(20) - h1);
+  double denom = (h2 * sin(20));
+  double offset = atan2(numer , denom);
+  return offset;
+}
+
+void center() {
+  Drivetrain.turnFor(20, deg);
+  double h1 = distanceSensor.objectDistance(mm);
+  Drivetrain.turnFor(-40, deg);
+  double h2 = distanceSensor.objectDistance(mm);
+  Drivetrain.turnFor(20, deg);
+  double x = offsetCalc(h1, h2) * (PI / 180);
+  Drivetrain.turnFor(x, deg);
+}
 
 void bufferWrite(double value) {
   // Ignore invalid/out-of-range sensor readings (0 or max range)
@@ -180,9 +199,9 @@ void handleInit(void) {
   Brain.Screen.print("Calibrating...");
 
   brainInertial.calibrate();
-  while (brainInertial.isCalibrating()){
+  while (brainInertial.isCalibrating()) {
     wait(WAIT_TIME, msec);
-  } 
+  }
   gState = STATE_IDLE;
 }
 
@@ -202,16 +221,15 @@ void handleIdle(void) {
   Brain.Screen.print("use preset defaults");
   if (touchLEDSensor.pressing()) {
     gState = STATE_COLOR_CHECK;
-  }
-  else if (bumpSensor.pressing()) {    
-  Brain.Screen.clearScreen();
-  Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("Using Defaults");
-  wait(WAIT_TIME,msec);
-    loadDefaultCol();                    //fills gCal from defColor array
-    
+  } else if (bumpSensor.pressing()) {
+    Brain.Screen.clearScreen();
+    Brain.Screen.setCursor(1, 1);
+    Brain.Screen.print("Using Defaults");
+    wait(WAIT_TIME, msec);
+    loadDefaultCol(); // fills gCal from defColor array
+
     gState = STATE_COLOR_CHECK;
-}
+  }
 }
 
 void handlecolorCheck(void) {
@@ -261,9 +279,19 @@ void handleMove(void) {
     Drivetrain.turnToRotation((int)targetHeading * QUARTER_TURN, degrees);
     lastHeading = targetHeading;
   }
-  if (gAction == FORWARD || gAction == REVERSE) {
+
+  if (gAction == FORWARD || gAction == REVERSE)
     Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
-  }
+
+  if (distanceSensor.objectDistance(mm) > CAL_DIST &&
+      distanceSensor.objectDistance(mm) < 200)
+    Drivetrain.driveFor(forward, (distanceSensor.objectDistance(mm) - CAL_DIST),
+                        mm);
+
+  if (distanceSensor.objectDistance(mm) < CAL_DIST)
+    Drivetrain.driveFor(reverse, (CAL_DIST - distanceSensor.objectDistance(mm)),
+                        mm);
+  center();
   gState = STATE_COLOR_CHECK;
 }
 
@@ -272,18 +300,19 @@ void handleError(void) {
 
   touchLEDSensor.on(red);
   // I dont like that I am calling for the debug object I made
-  Info info = getInfo();wait(WAIT_TIME,msec);
+  Info info = getInfo();
+  wait(WAIT_TIME, msec);
   Brain.Screen.setCursor(2, 1);
   Brain.Screen.print("x: %d, y: %d", info.cell.x, info.cell.y);
   Brain.Screen.setCursor(3, 1);
   Brain.Screen.print("place on center of %i, %i faceing %c", info.cell.x,
                      info.cell.y, info.heading);
   while (!touchLEDSensor.pressing())
-  brainInertial.calibrate();
+    brainInertial.calibrate();
   do {
     wait(WAIT_TIME, msec);
   } while (brainInertial.isCalibrating());
-  
+
   // Enters loop agian at correct XY
   gState = STATE_COLOR_CHECK;
 }
