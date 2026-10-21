@@ -226,146 +226,149 @@ void handleColorCal() {
     loadDefaultCol(); // fills gCal from defColor array
     gState = STATE_INIT;
   }
+}
 
-  void handleIdle(void) {
-    touchLEDSensor.on(white);
-    Brain.Screen.clearScreen();
-    Brain.Screen.setCursor(1, 1);
-    Brain.Screen.print("Press LED to start");
-    while (!touchLEDSensor.pressing()) {
-      wait(WAIT_TIME, msec);
-    }
-    gState = STATE_COLOR_CHECK;
-  }
-
-  void handlecolorCheck(void) {
-    touchLEDSensor.on(purple);
-    gtileColor =
-        classifyTileColor(opticalSensor.hue(), opticalSensor.brightness());
-
-    Info info = getInfo(); // cell the robot is standing on
-    if (!flashed[info.cell.x][info.cell.y]) {
-      flashed[info.cell.x][info.cell.y] = true;
-      flashTile(gtileColor);
-    }
-
-    // EXTENSION POINT 2: objective handler states branch from here
-    gState = STATE_WALL_CHECK;
-  }
-
-  void handleWallCheck(void) {
-    touchLEDSensor.on(blue_green);
-    count = 0;
-    writeIndex = 0;
-
-    // The robot is stationary here, so averaging is valid
-    for (int i = 0; i < BUFFER_SIZE; i++) {
-      bufferWrite(distanceSensor.objectDistance(mm));
-      wait(WAIT_TIME / BUFFER_SIZE, msec);
-    }
-
-    double avgDist = bufferAverage();
-    gWallAhead = updateWallDetection(avgDist);
-    screen(avgDist);
-    gState = STATE_DECIDE;
-  }
-
-  static Action gAction = IDLE;
-
-  void handleDecide(void) {
-    touchLEDSensor.on(yellow);
-    gAction = decide(gWallAhead, gtileColor);
-    targetHeading = getHeading();
-    gState = (gAction == IDLE) ? STATE_IDLE : STATE_MOVE;
-  }
-
-  void handleMove(void) {
-    static int counter = 0;
-    touchLEDSensor.on(green);
-    if (lastHeading != targetHeading) {
-      Drivetrain.turnToRotation((int)targetHeading * QUARTER_TURN, degrees);
-      lastHeading = targetHeading;
-    }
-
-    if (gAction == FORWARD || gAction == REVERSE)
-      Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
-
-    if (distanceSensor.objectDistance(mm) > IDEAL_DIST &&
-        distanceSensor.objectDistance(mm) < 200)
-      Drivetrain.driveFor(forward,
-                          (distanceSensor.objectDistance(mm) - IDEAL_DIST), mm);
-
-    if (distanceSensor.objectDistance(mm) < IDEAL_DIST)
-      Drivetrain.driveFor(reverse,
-                          (IDEAL_DIST - distanceSensor.objectDistance(mm)), mm);
-    if (counter == 5)
-      center();
-    counter = (counter + 1) % 5;
-    gState = STATE_COLOR_CHECK;
-  }
-
-  void handleError(void) {
-    Drivetrain.stop();
-
-    touchLEDSensor.on(red);
-    // I dont like that I am calling for the debug object I made
-    Info info = getInfo();
+void handleIdle(void) {
+  touchLEDSensor.on(white);
+  Brain.Screen.clearScreen();
+  Brain.Screen.setCursor(1, 1);
+  Brain.Screen.print("Press LED to start");
+  while (!touchLEDSensor.pressing()) {
     wait(WAIT_TIME, msec);
-    Brain.Screen.setCursor(2, 1);
-    Brain.Screen.print("x: %d, y: %d", info.cell.x, info.cell.y);
-    Brain.Screen.setCursor(3, 1);
-    Brain.Screen.print("place on center of %i, %i faceing %c", info.cell.x,
-                       info.cell.y, info.heading);
-    while (!touchLEDSensor.pressing())
-      brainInertial.calibrate();
-    do {
-      wait(WAIT_TIME, msec);
-    } while (brainInertial.isCalibrating());
+  }
+  gState = STATE_COLOR_CHECK;
+}
 
-    // Enters loop agian at correct XY
-    gState = STATE_COLOR_CHECK;
+void handlecolorCheck(void) {
+  touchLEDSensor.on(purple);
+  gtileColor =
+      classifyTileColor(opticalSensor.hue(), opticalSensor.brightness());
+
+  Info info = getInfo(); // cell the robot is standing on
+  if (!flashed[info.cell.x][info.cell.y]) {
+    flashed[info.cell.x][info.cell.y] = true;
+    flashTile(gtileColor);
   }
 
-  // --- Dispatcher ---
+  // EXTENSION POINT 2: objective handler states branch from here
+  gState = STATE_WALL_CHECK;
+}
 
-  void runStateMachine(void) {
-    switch (gState) {
-    case STATE_INIT:
-      handleInit();
-      break;
-    case STATE_COLOR_CAL:
-      handleColorCal();
-      break;
-    case STATE_IDLE:
-      handleIdle();
-      break;
-    case STATE_COLOR_CHECK:
-      handlecolorCheck();
-      break;
-    case STATE_WALL_CHECK:
-      handleWallCheck();
-      break;
-    case STATE_DECIDE:
-      handleDecide();
-      break;
-    case STATE_MOVE:
-      handleMove();
-      break;
-    case STATE_ERROR:
-      handleError();
-      break;
-    default:
-      Drivetrain.stop();
-      break;
-    }
+void handleWallCheck(void) {
+  touchLEDSensor.on(blue_green);
+  count = 0;
+  writeIndex = 0;
+
+  // The robot is stationary here, so averaging is valid
+  for (int i = 0; i < BUFFER_SIZE; i++) {
+    bufferWrite(distanceSensor.objectDistance(mm));
+    wait(WAIT_TIME / BUFFER_SIZE, msec);
   }
 
-  int main() {
-    opticalSensor.setLight(ledState::on);
-    Drivetrain.setTurnVelocity(TURN_SPEED, percent);
-    Drivetrain.setDriveVelocity(DRIVE_SPEED, percent);
-    while (1) {
-      runStateMachine();
-      wait(LOOP_DELAY, msec);
-    }
+  double avgDist = bufferAverage();
+  gWallAhead = updateWallDetection(avgDist);
+  screen(avgDist);
+  gState = STATE_DECIDE;
+}
+
+static Action gAction = IDLE;
+
+void handleDecide(void) {
+  touchLEDSensor.on(yellow);
+  gAction = decide(gWallAhead, gtileColor);
+  targetHeading = getHeading();
+  gState = (gAction == IDLE) ? STATE_IDLE : STATE_MOVE;
+}
+
+void handleMove(void) {
+  static int counter = 0;
+  touchLEDSensor.on(green);
+  if (lastHeading != targetHeading) {
+    Drivetrain.turnToRotation((int)targetHeading * QUARTER_TURN, degrees);
+    lastHeading = targetHeading;
   }
+
+  if (gAction == FORWARD || gAction == REVERSE)
+    Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
+
+  if (distanceSensor.objectDistance(mm) > IDEAL_DIST &&
+      distanceSensor.objectDistance(mm) < 200)
+    Drivetrain.driveFor(forward,
+                        (distanceSensor.objectDistance(mm) - IDEAL_DIST), mm);
+
+  if (distanceSensor.objectDistance(mm) < IDEAL_DIST &&
+      distanceSensor.objectDistance(mm) != 0)
+    Drivetrain.driveFor(reverse,
+                        (IDEAL_DIST - distanceSensor.objectDistance(mm)), mm);
+
+  if (counter == 4)
+    center();
+  counter = (counter + 1) % 5;
+  gState = STATE_COLOR_CHECK;
+}
+
+void handleError(void) {
+  Drivetrain.stop();
+
+  touchLEDSensor.on(red);
+  // I dont like that I am calling for the debug object I made
+  Info info = getInfo();
+  wait(WAIT_TIME, msec);
+  Brain.Screen.setCursor(2, 1);
+  Brain.Screen.print("x: %d, y: %d", info.cell.x, info.cell.y);
+  Brain.Screen.setCursor(3, 1);
+  Brain.Screen.print("place on center of %i, %i faceing %c", info.cell.x,
+                     info.cell.y, info.heading);
+  while (!touchLEDSensor.pressing())
+    brainInertial.calibrate();
+  do {
+    wait(WAIT_TIME, msec);
+  } while (brainInertial.isCalibrating());
+
+  // Enters loop agian at correct XY
+  gState = STATE_COLOR_CHECK;
+}
+
+// --- Dispatcher ---
+
+void runStateMachine(void) {
+  switch (gState) {
+  case STATE_INIT:
+    handleInit();
+    break;
+  case STATE_COLOR_CAL:
+    handleColorCal();
+    break;
+  case STATE_IDLE:
+    handleIdle();
+    break;
+  case STATE_COLOR_CHECK:
+    handlecolorCheck();
+    break;
+  case STATE_WALL_CHECK:
+    handleWallCheck();
+    break;
+  case STATE_DECIDE:
+    handleDecide();
+    break;
+  case STATE_MOVE:
+    handleMove();
+    break;
+  case STATE_ERROR:
+    handleError();
+    break;
+  default:
+    Drivetrain.stop();
+    break;
+  }
+}
+
+int main() {
+  opticalSensor.setLight(ledState::on);
+  Drivetrain.setTurnVelocity(TURN_SPEED, percent);
+  Drivetrain.setDriveVelocity(DRIVE_SPEED, percent);
+  while (1) {
+    runStateMachine();
+    wait(LOOP_DELAY, msec);
+  }
+}
