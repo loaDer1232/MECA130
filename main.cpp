@@ -138,7 +138,7 @@ static void flashTile(TileColor c) {
     return; // black / white: nothing to report
   }
   touchLEDSensor.setBlink(led, 0.25, 0.25);
-  wait(800, msec);
+  wait(1000, msec);
   touchLEDSensor.setBrightness(0);
 }
 
@@ -280,6 +280,7 @@ void handleColorCal() {
   }
 
   void handleMove(void) {
+    static int counter = 0;
     touchLEDSensor.on(green);
     if (lastHeading != targetHeading) {
       Drivetrain.turnToRotation((int)targetHeading * QUARTER_TURN, degrees);
@@ -297,7 +298,9 @@ void handleColorCal() {
     if (distanceSensor.objectDistance(mm) < IDEAL_DIST)
       Drivetrain.driveFor(reverse,
                           (IDEAL_DIST - distanceSensor.objectDistance(mm)), mm);
-    center();
+    if (counter == 5)
+      center();
+    counter = (counter + 1) % 5;
     gState = STATE_COLOR_CHECK;
   }
 
