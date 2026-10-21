@@ -12,7 +12,7 @@
 
 #define LOOP_DELAY 200
 
-#define CAL_DIST 94
+#define IDEAL_DIST 94
 
 #define WALL_SET_MM 300
 #define WALL_CLEAR_MM 390
@@ -66,7 +66,7 @@ int count = 0;
 double offsetCalc(double h1, double h2) {
   double numer = (h2 * cos(20) - h1);
   double denom = (h2 * sin(20));
-  double offset = atan2(numer , denom);
+  double offset = atan2(numer, denom);
   return offset;
 }
 
@@ -194,7 +194,7 @@ void screen(float avgDist) {
 
 void handleInit(void) {
   touchLEDSensor.on(white);
-  // Brain.Screen.clearScreen();
+  Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
   Brain.Screen.print("Calibrating...");
 
@@ -206,157 +206,163 @@ void handleInit(void) {
 }
 
 void handleColorCal() {
-  colorCal();
-  gState = STATE_INIT;
-}
-
-void handleIdle(void) {
   touchLEDSensor.on(white);
   Brain.Screen.clearScreen();
   Brain.Screen.setCursor(1, 1);
-  Brain.Screen.print("Press LED to start");
+  Brain.Screen.print("Color Calibration");
   Brain.Screen.setCursor(2, 1);
-  Brain.Screen.print("Press Bumper to");
+  Brain.Screen.print("Press LED to start,");
   Brain.Screen.setCursor(3, 1);
+  Brain.Screen.print("Press Bumper to");
+  Brain.Screen.setCursor(4, 1);
   Brain.Screen.print("use preset defaults");
   if (touchLEDSensor.pressing()) {
-    gState = STATE_COLOR_CHECK;
+    colorCal();
   } else if (bumpSensor.pressing()) {
     Brain.Screen.clearScreen();
     Brain.Screen.setCursor(1, 1);
     Brain.Screen.print("Using Defaults");
     wait(WAIT_TIME, msec);
     loadDefaultCol(); // fills gCal from defColor array
+    gState = STATE_INIT;
+  }
 
+  void handleIdle(void) {
+    touchLEDSensor.on(white);
+    Brain.Screen.clearScreen();
+    Brain.Screen.setCursor(1, 1);
+    Brain.Screen.print("Press LED to start");
+    while (!touchLEDSensor.pressing()) {
+      wait(WAIT_TIME, msec);
+    }
     gState = STATE_COLOR_CHECK;
   }
-}
 
-void handlecolorCheck(void) {
-  touchLEDSensor.on(purple);
-  gtileColor =
-      classifyTileColor(opticalSensor.hue(), opticalSensor.brightness());
+  void handlecolorCheck(void) {
+    touchLEDSensor.on(purple);
+    gtileColor =
+        classifyTileColor(opticalSensor.hue(), opticalSensor.brightness());
 
-  Info info = getInfo(); // cell the robot is standing on
-  if (!flashed[info.cell.x][info.cell.y]) {
-    flashed[info.cell.x][info.cell.y] = true;
-    flashTile(gtileColor);
+    Info info = getInfo(); // cell the robot is standing on
+    if (!flashed[info.cell.x][info.cell.y]) {
+      flashed[info.cell.x][info.cell.y] = true;
+      flashTile(gtileColor);
+    }
+
+    // EXTENSION POINT 2: objective handler states branch from here
+    gState = STATE_WALL_CHECK;
   }
 
-  // EXTENSION POINT 2: objective handler states branch from here
-  gState = STATE_WALL_CHECK;
-}
+  void handleWallCheck(void) {
+    touchLEDSensor.on(blue_green);
+    count = 0;
+    writeIndex = 0;
 
-void handleWallCheck(void) {
-  touchLEDSensor.on(blue_green);
-  count = 0;
-  writeIndex = 0;
+    // The robot is stationary here, so averaging is valid
+    for (int i = 0; i < BUFFER_SIZE; i++) {
+      bufferWrite(distanceSensor.objectDistance(mm));
+      wait(WAIT_TIME / BUFFER_SIZE, msec);
+    }
 
-  // The robot is stationary here, so averaging is valid
-  for (int i = 0; i < BUFFER_SIZE; i++) {
-    bufferWrite(distanceSensor.objectDistance(mm));
-    wait(WAIT_TIME / BUFFER_SIZE, msec);
+    double avgDist = bufferAverage();
+    gWallAhead = updateWallDetection(avgDist);
+    screen(avgDist);
+    gState = STATE_DECIDE;
   }
 
-  double avgDist = bufferAverage();
-  gWallAhead = updateWallDetection(avgDist);
-  screen(avgDist);
-  gState = STATE_DECIDE;
-}
+  static Action gAction = IDLE;
 
-static Action gAction = IDLE;
-
-void handleDecide(void) {
-  touchLEDSensor.on(yellow);
-  gAction = decide(gWallAhead, gtileColor);
-  targetHeading = getHeading();
-  gState = (gAction == IDLE) ? STATE_IDLE : STATE_MOVE;
-}
-
-void handleMove(void) {
-  touchLEDSensor.on(green);
-  if (lastHeading != targetHeading) {
-    Drivetrain.turnToRotation((int)targetHeading * QUARTER_TURN, degrees);
-    lastHeading = targetHeading;
+  void handleDecide(void) {
+    touchLEDSensor.on(yellow);
+    gAction = decide(gWallAhead, gtileColor);
+    targetHeading = getHeading();
+    gState = (gAction == IDLE) ? STATE_IDLE : STATE_MOVE;
   }
 
-  if (gAction == FORWARD || gAction == REVERSE)
-    Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
+  void handleMove(void) {
+    touchLEDSensor.on(green);
+    if (lastHeading != targetHeading) {
+      Drivetrain.turnToRotation((int)targetHeading * QUARTER_TURN, degrees);
+      lastHeading = targetHeading;
+    }
 
-  if (distanceSensor.objectDistance(mm) > CAL_DIST &&
-      distanceSensor.objectDistance(mm) < 200)
-    Drivetrain.driveFor(forward, (distanceSensor.objectDistance(mm) - CAL_DIST),
-                        mm);
+    if (gAction == FORWARD || gAction == REVERSE)
+      Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
 
-  if (distanceSensor.objectDistance(mm) < CAL_DIST)
-    Drivetrain.driveFor(reverse, (CAL_DIST - distanceSensor.objectDistance(mm)),
-                        mm);
-  center();
-  gState = STATE_COLOR_CHECK;
-}
+    if (distanceSensor.objectDistance(mm) > IDEAL_DIST &&
+        distanceSensor.objectDistance(mm) < 200)
+      Drivetrain.driveFor(forward,
+                          (distanceSensor.objectDistance(mm) - IDEAL_DIST), mm);
 
-void handleError(void) {
-  Drivetrain.stop();
+    if (distanceSensor.objectDistance(mm) < IDEAL_DIST)
+      Drivetrain.driveFor(reverse,
+                          (IDEAL_DIST - distanceSensor.objectDistance(mm)), mm);
+    center();
+    gState = STATE_COLOR_CHECK;
+  }
 
-  touchLEDSensor.on(red);
-  // I dont like that I am calling for the debug object I made
-  Info info = getInfo();
-  wait(WAIT_TIME, msec);
-  Brain.Screen.setCursor(2, 1);
-  Brain.Screen.print("x: %d, y: %d", info.cell.x, info.cell.y);
-  Brain.Screen.setCursor(3, 1);
-  Brain.Screen.print("place on center of %i, %i faceing %c", info.cell.x,
-                     info.cell.y, info.heading);
-  while (!touchLEDSensor.pressing())
-    brainInertial.calibrate();
-  do {
-    wait(WAIT_TIME, msec);
-  } while (brainInertial.isCalibrating());
-
-  // Enters loop agian at correct XY
-  gState = STATE_COLOR_CHECK;
-}
-
-// --- Dispatcher ---
-
-void runStateMachine(void) {
-  switch (gState) {
-  case STATE_INIT:
-    handleInit();
-    break;
-  case STATE_COLOR_CAL:
-    handleColorCal();
-    break;
-  case STATE_IDLE:
-    handleIdle();
-    break;
-  case STATE_COLOR_CHECK:
-    handlecolorCheck();
-    break;
-  case STATE_WALL_CHECK:
-    handleWallCheck();
-    break;
-  case STATE_DECIDE:
-    handleDecide();
-    break;
-  case STATE_MOVE:
-    handleMove();
-    break;
-  case STATE_ERROR:
-    handleError();
-    break;
-  default:
+  void handleError(void) {
     Drivetrain.stop();
-    break;
-  }
-}
 
-int main() {
-  opticalSensor.setLight(ledState::on);
-  Drivetrain.setTurnVelocity(TURN_SPEED, percent);
-  Drivetrain.setDriveVelocity(DRIVE_SPEED, percent);
-  while (1) {
-    runStateMachine();
-    wait(LOOP_DELAY, msec);
+    touchLEDSensor.on(red);
+    // I dont like that I am calling for the debug object I made
+    Info info = getInfo();
+    wait(WAIT_TIME, msec);
+    Brain.Screen.setCursor(2, 1);
+    Brain.Screen.print("x: %d, y: %d", info.cell.x, info.cell.y);
+    Brain.Screen.setCursor(3, 1);
+    Brain.Screen.print("place on center of %i, %i faceing %c", info.cell.x,
+                       info.cell.y, info.heading);
+    while (!touchLEDSensor.pressing())
+      brainInertial.calibrate();
+    do {
+      wait(WAIT_TIME, msec);
+    } while (brainInertial.isCalibrating());
+
+    // Enters loop agian at correct XY
+    gState = STATE_COLOR_CHECK;
   }
-}
+
+  // --- Dispatcher ---
+
+  void runStateMachine(void) {
+    switch (gState) {
+    case STATE_INIT:
+      handleInit();
+      break;
+    case STATE_COLOR_CAL:
+      handleColorCal();
+      break;
+    case STATE_IDLE:
+      handleIdle();
+      break;
+    case STATE_COLOR_CHECK:
+      handlecolorCheck();
+      break;
+    case STATE_WALL_CHECK:
+      handleWallCheck();
+      break;
+    case STATE_DECIDE:
+      handleDecide();
+      break;
+    case STATE_MOVE:
+      handleMove();
+      break;
+    case STATE_ERROR:
+      handleError();
+      break;
+    default:
+      Drivetrain.stop();
+      break;
+    }
+  }
+
+  int main() {
+    opticalSensor.setLight(ledState::on);
+    Drivetrain.setTurnVelocity(TURN_SPEED, percent);
+    Drivetrain.setDriveVelocity(DRIVE_SPEED, percent);
+    while (1) {
+      runStateMachine();
+      wait(LOOP_DELAY, msec);
+    }
+  }
