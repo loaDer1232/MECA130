@@ -10,7 +10,7 @@ typedef enum Pitch {
   A,
   B,
 } Pitch;
-typedef enum Length { EIGHTTH, QUATER, HALF, WHOLE } Length;
+typedef enum Length { EIGHTTH=8, QUATER=4, HALF=2, WHOLE=1 } Length;
 
 typedef struct Note {
   Pitch pitch;

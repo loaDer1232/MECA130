@@ -14,6 +14,8 @@
 
 #define IDEAL_DIST 94
 
+#define TURN_COUNTER 7
+
 #define WALL_SET_MM 300
 #define WALL_CLEAR_MM 390
 #define SCREEN_RESET_X 1
@@ -29,7 +31,6 @@
 #define TRACK_WIDTH_MM 18.63
 #define WHEEL_BASE_MM 121.7
 #define CELL_SIZE_MM 400.0 // adjust to r/w measurement
-
 #define INERTIAL_TOLERANCE 2
 
 typedef enum RobotState {
@@ -64,8 +65,8 @@ int writeIndex = 0;
 int count = 0;
 
 double offsetCalc(double h1, double h2) {
-  double numer = (h2 * cos(20) - h1);
-  double denom = (h2 * sin(20));
+  double numer = (h2 * cos(0.349066) - h1);
+  double denom = (h2 * sin(0.349066));
   double offset = atan2(numer, denom);
   return offset;
 }
@@ -73,11 +74,15 @@ double offsetCalc(double h1, double h2) {
 void center() {
   Drivetrain.turnFor(20, deg);
   double h1 = distanceSensor.objectDistance(mm);
+  Drivetrain.setTurnVelocity(
+      50, percent); // SET turning speed to lower value to minimize errors
   Drivetrain.turnFor(-40, deg);
   double h2 = distanceSensor.objectDistance(mm);
   Drivetrain.turnFor(20, deg);
-  double x = offsetCalc(h1, h2) * (PI / 180);
+  double x = offsetCalc(h1, h2) * (180 / PI);
   Drivetrain.turnFor(x, deg);
+  Drivetrain.setTurnVelocity(TURN_SPEED,
+                             percent); // reset turnspeed to globaldef
 }
 
 void bufferWrite(double value) {
@@ -119,27 +124,31 @@ bool updateWallDetection(double avg) {
 }
 
 static bool flashed[MAZE_WIDTH][MAZE_HEIGHT] = {{false}};
-static void flashTile(TileColor c) {
+static bool flashTile(TileColor c) {
   color led;
   switch (c) {
   case RED:
     led = red;
+    Brain.playNote(4, 0);
     break;
   case GREEN:
     led = green;
+    Brain.playNote(4, 4);
     break;
   case BLUE:
     led = blue;
+    Brain.playNote(4, 6);
     break;
   case YELLOW:
     led = yellow;
+    Brain.playNote(3, 5);
     break;
   default:
-    return; // black / white: nothing to report
+    return false; // black / white: nothing to report
   }
-  touchLEDSensor.setBlink(led, 0.25, 0.25);
+  touchLEDSensor.setBlink(led, 0.15, 0.15);
   wait(1000, msec);
-  touchLEDSensor.setBrightness(0);
+  return true;
 }
 
 RobotState gState = STATE_COLOR_CAL;
@@ -218,14 +227,15 @@ void handleColorCal() {
   Brain.Screen.print("use preset defaults");
   if (touchLEDSensor.pressing()) {
     colorCal();
+    gState = STATE_INIT;
   } else if (bumpSensor.pressing()) {
     Brain.Screen.clearScreen();
     Brain.Screen.setCursor(1, 1);
     Brain.Screen.print("Using Defaults");
     wait(WAIT_TIME, msec);
-    loadDefaultCol(); // fills gCal from defColor array
+    loadDefaultCol();
     gState = STATE_INIT;
-  }
+  } // fills gCal from defColor array
 }
 
 void handleIdle(void) {
@@ -246,8 +256,7 @@ void handlecolorCheck(void) {
 
   Info info = getInfo(); // cell the robot is standing on
   if (!flashed[info.cell.x][info.cell.y]) {
-    flashed[info.cell.x][info.cell.y] = true;
-    flashTile(gtileColor);
+    flashed[info.cell.x][info.cell.y] = flashTile(gtileColor);
   }
 
   // EXTENSION POINT 2: objective handler states branch from here
@@ -258,6 +267,11 @@ void handleWallCheck(void) {
   touchLEDSensor.on(blue_green);
   count = 0;
   writeIndex = 0;
+  if (getInfo().cell.type !=
+      TILE_UNKNOWN) { // already mapped: nothing to measure
+    gState = STATE_DECIDE;
+    return;
+  }
 
   // The robot is stationary here, so averaging is valid
   for (int i = 0; i < BUFFER_SIZE; i++) {
@@ -282,17 +296,41 @@ void handleDecide(void) {
 
 void handleMove(void) {
   static int counter = 0;
-  touchLEDSensor.on(green);
-  if (lastHeading != targetHeading) {
-    Drivetrain.turnToRotation((int)targetHeading * QUARTER_TURN, degrees);
-    lastHeading = targetHeading;
+  double cur = Drivetrain.rotation(degrees);
+  double want = (int)targetHeading * QUARTER_TURN;
+  double delta = fmod(want - cur, 360.0);
+  if (delta > 180)
+    delta -= 360;
+  if (delta < -180)
+    delta += 360;
+  Drivetrain.turnToRotation(cur + delta, degrees);
+  lastHeading = targetHeading;
+
+  if (gAction == FORWARD || gAction == REVERSE) {
+    Drivetrain.driveFor(forward, CELL_SIZE_MM, mm, false);
+    bool bumped = false;
+    while (Drivetrain.isMoving()) {
+      if (bumpSensor.pressing()) {
+        Drivetrain.stop();
+        bumped = true;
+        break; // leave the loop immediately
+      }
+      wait(10, msec);
+    }
+
+    if (bumped) {
+      double d = distanceSensor.objectDistance(mm);
+      if (d > 0 && d < IDEAL_DIST) // back off to cell centre
+        Drivetrain.driveFor(reverse, IDEAL_DIST - d, mm);
+      revertXY();   // once only
+      clearPlan();
+      gState = STATE_COLOR_CHECK;
+      return; // skip correction, counter and center()
+    }
   }
 
-  if (gAction == FORWARD || gAction == REVERSE)
-    Drivetrain.driveFor(forward, CELL_SIZE_MM, mm);
-
   if (distanceSensor.objectDistance(mm) > IDEAL_DIST &&
-      distanceSensor.objectDistance(mm) < 200)
+      distanceSensor.objectDistance(mm) < WALL_SET_MM)
     Drivetrain.driveFor(forward,
                         (distanceSensor.objectDistance(mm) - IDEAL_DIST), mm);
 
@@ -301,9 +339,19 @@ void handleMove(void) {
     Drivetrain.driveFor(reverse,
                         (IDEAL_DIST - distanceSensor.objectDistance(mm)), mm);
 
-  if (counter == 4)
+  Info info = getInfo();
+
+  if (counter >= TURN_COUNTER &&
+      (distanceSensor.objectDistance(mm) <= (IDEAL_DIST + 20) &&
+       distanceSensor.objectDistance(mm) >= (IDEAL_DIST - 20)) &&
+      info.cell.type != TILE_HAZARD) {
     center();
-  counter = (counter + 1) % 5;
+    counter = 0;
+  }
+  counter = (counter + 1);
+  Brain.Screen.setCursor(6, 1);
+  Brain.Screen.print("counter: %d", counter);
+  // if (!Drivetrain.isMoving())
   gState = STATE_COLOR_CHECK;
 }
 
@@ -358,7 +406,7 @@ void runStateMachine(void) {
     handleError();
     break;
   default:
-    Drivetrain.stop();
+    handleError();
     break;
   }
 }
