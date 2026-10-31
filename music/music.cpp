@@ -29,7 +29,8 @@ void playSong(const Song &song) {
 
   for (int i = 0; i < song.duration; i++) {
     int ms = wholeNoteMs / song.notes[i].length;
-    Brain.playNote(song.notes[i].octave, song.notes[i].pitch, ms);
+    if (!(song.notes[i].pitch == REST))
+      Brain.playNote(song.notes[i].octave, song.notes[i].pitch, ms);
     wait(ms, msec); // playNote returns immediately, so wait for it to finish
   }
 }

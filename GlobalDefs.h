@@ -3,8 +3,11 @@
 
 #define WAIT_TIME 200
 
-#define MAZE_HEIGHT 20
-#define MAZE_WIDTH 20
+#define MAZE_HEIGHT 16
+#define MAZE_WIDTH 16
+#define START_X 0
+#define START_Y 0
+
 #define DRIVE_SPEED 75
 #define TURN_SPEED 95
 

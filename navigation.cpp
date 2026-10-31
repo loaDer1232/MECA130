@@ -12,8 +12,8 @@ int hazardsFound = 0;
 struct AssmeblyTile assmeblyTile;
 struct AssmeblyTile startTile;
 
-int x = MAZE_WIDTH / 2;
-int y = MAZE_HEIGHT / 2;
+int x = START_X;
+int y = START_Y;
 
 Heading heading = NORTH;
 
@@ -124,12 +124,11 @@ void init() {
           maze[i][j].wallNorth = TRUE;
       }
     }
-    push(&edgeNodes, &maze[MAZE_WIDTH / 2][MAZE_HEIGHT / 2]);
-    push(&visitedNodes, &maze[MAZE_WIDTH / 2][MAZE_HEIGHT / 2]);
+    push(&edgeNodes, &maze[START_X][START_Y]);
+    push(&visitedNodes, &maze[START_X][START_Y]);
     run = true;
   }
 }
-
 
 void clearPlan() {
   while (!isEmpty(&actions))

@@ -53,6 +53,9 @@ static bool charToPitch(char c, Pitch *out) {
   case 'B':
     *out = B;
     return true;
+  case '_':
+    *out = REST;
+    return true;
   default:
     return false;
   }
@@ -69,7 +72,7 @@ static Pitch getPitch(const char *prompt) {
       exit(EXIT_FAILURE);
     if (response[0] != '\0' && charToPitch(response[0], &pitch))
       return pitch;
-    printf("Enter a note from A to G.\n");
+    printf("Enter a note from A to G or _ for rest.\n");
   }
 }
 
@@ -96,7 +99,8 @@ static int readInt32(const uint8_t *p) {
 static bool validOctave(int o) { return o >= MIN_OCTAVE && o <= MAX_OCTAVE; }
 
 static bool validPitch(int p) {
-  return p == C || p == D || p == E || p == F || p == G || p == A || p == B;
+  return p == C || p == D || p == E || p == F || p == G || p == A || p == B ||
+         p == REST;
 }
 
 static bool validLength(int l) {
@@ -281,6 +285,8 @@ static const char *pitchName(Pitch p) {
     return "A";
   case B:
     return "B";
+  case REST:
+    return "_";
   }
   return "?";
 }
@@ -294,7 +300,7 @@ void printSong(const Song *song) {
 }
 
 int main(int argc, char *argv[]) {
-  const char *fileName = (argc > 1) ? argv[1] : "song.bin";
+  const char *fileName = (argc > 1) ? argv[1] : "song.vmf";
   const char *mode = (argc > 2) ? argv[2] : "comp";
 
   if (strcmp(mode, "comp") == 0) {
@@ -312,7 +318,7 @@ int main(int argc, char *argv[]) {
 
   if (strcmp(mode, "import") == 0) {
     if (argc < 4) {
-      fprintf(stderr, "Usage: %s out.bin import song.txt\n", argv[0]);
+      fprintf(stderr, "Usage: %s out.vmf import song.txt\n", argv[0]);
       return EXIT_FAILURE;
     }
     Song song = {};

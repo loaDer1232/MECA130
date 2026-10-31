@@ -5,7 +5,16 @@
 #define MIN_OCTAVE 0
 #define MAX_OCTAVE 8
 
-typedef enum Pitch { C = 0, D = 1, E = 2, F = 3, G = 4, A = 5, B = 6 } Pitch;
+typedef enum Pitch {
+  C = 0,
+  D = 1,
+  E = 2,
+  F = 3,
+  G = 4,
+  A = 5,
+  B = 6,
+  REST = 7
+} Pitch;
 
 typedef enum Length { EIGHTH = 8, QUARTER = 4, HALF = 2, WHOLE = 1 } Length;
 
