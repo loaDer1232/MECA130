@@ -10,9 +10,10 @@ int cachesFound = 0;
 int survivorsFound = 0;
 int hazardsFound = 0;
 struct AssmeblyTile assmeblyTile;
+struct AssmeblyTile startTile;
 
-int x = 0;
-int y = 0;
+int x = START_X;
+int y = START_Y;
 
 Heading heading = NORTH;
 
@@ -34,6 +35,23 @@ void updateXY() {
     break;
   case WEST:
     x--;
+    break;
+  }
+}
+
+void revertXY() {
+  switch (heading) {
+  case NORTH:
+    y--;
+    break;
+  case EAST:
+    x--;
+    break;
+  case SOUTH:
+    y++;
+    break;
+  case WEST:
+    x++;
     break;
   }
 }
@@ -106,13 +124,20 @@ void init() {
           maze[i][j].wallNorth = TRUE;
       }
     }
-    push(&edgeNodes, &maze[0][0]);
-    push(&visitedNodes, &maze[0][0]);
+    push(&edgeNodes, &maze[START_X][START_Y]);
+    push(&visitedNodes, &maze[START_X][START_Y]);
     run = true;
   }
 }
 
-static Wall wallAt(Cell *cell, Heading heading) {
+void clearPlan() {
+  while (!isEmpty(&actions))
+    dequeue(&actions);
+  if (visitedNodes.size > 0)
+    pop(&visitedNodes);
+}
+
+Wall wallAt(Cell *cell, Heading heading) {
   switch (heading) {
   case NORTH:
     return cell->wallNorth;
@@ -210,11 +235,13 @@ static void planPath(Cell *from, Cell *to) {
   Heading sim = heading; // simulated, don't touch the real one
   for (int i = len - 1; i > 0; i--) {
     Heading need = headingBetween(path[i], path[i - 1]);
-    while (sim !=
-           need) { // turn right until aligned (or add LEFT for shorter turns)
-      enqueue(&actions, &actionsMap[1]);
-      sim = static_cast<Heading>((sim + 1) % 4);
-    }
+    int diff = (need - sim + 4) % 4; // 1=right, 2=flip, 3=left
+    if (diff == 3)
+      enqueue(&actions, &actionsMap[0]); // LEFT
+    else
+      for (int k = 0; k < diff; k++)
+        enqueue(&actions, &actionsMap[1]);
+    sim = need;
     enqueue(&actions, &actionsMap[2]);
   }
 }
@@ -268,6 +295,9 @@ Action mapCell(bool wallFront, TileColor color, Cell *cell) {
     assmeblyTile.found = true;
     assmeblyTile.cell = cell;
     break;
+  case TILE_START:
+    startTile.found = true;
+    startTile.cell = cell;
   default:
     break;
   }
@@ -310,13 +340,13 @@ Action decide(bool wallFront, TileColor color) {
     Cell *targetCell = nullptr;
 
     if (assmeblyTile.found && survivorsFound == NUM_SURVIVORS &&
-        cachesFound == NUM_CACHE) {
+        cachesFound == NUM_CACHE && startTile.found) {
       if (currentCell == assmeblyTile.cell)
         pickedUp = true;
       if (pickedUp) {
-        if (currentCell == &maze[0][0])
+        if (currentCell == startTile.cell)
           return IDLE; // win condtion
-        targetCell = &maze[0][0];
+        targetCell = startTile.cell;
       } else {
         targetCell = assmeblyTile.cell;
       }

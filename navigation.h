@@ -43,8 +43,11 @@ struct AssmeblyTile {
 
 Action decide(bool wallFront, TileColor color);
 Tile classifyTile(TileColor color);
-
+Wall wallAt(Cell *cell, Heading heading);
 Info getInfo();
 Heading getHeading();
+void revertXY();
+void clearPlan();
+
 
 #endif
