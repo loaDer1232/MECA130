@@ -51,7 +51,7 @@ A tile only counts if the robot **pauses and flashes** that colour on the touchL
 | blue   | survivor       | `TILE_SURVIVOR` |
 | yellow | supply cache   | `TILE_CACHE`    |
 
-Counts and maze size used by the objective logic are set in `GlobalDefs.h` (currently a 16x16 map with 3 survivors, 5 caches, 0 hazards and 1 assembly tile). Drive and turn speeds (`DRIVE_SPEED` 72%, `TURN_SPEED` 92%) are defined there too. For the real maze these should be 3 survivors, 4 caches and 3 hazards; see Known Limitations.
+Counts and maze size used by the objective logic are set in `GlobalDefs.h`. Drive and turn speeds (`DRIVE_SPEED` 72%, `TURN_SPEED` 92%) are defined there too. For the real maze these should be 3 survivors, 4 caches and 3 hazards.
 
 ## Hardware
 
@@ -65,7 +65,7 @@ Counts and maze size used by the objective logic are set in `GlobalDefs.h` (curr
 | Bumper               | `PORT11`             | skip input during calibration          |
 | Inertial sensor      | `right` (brain)      | heading for `smartdrive` turns         |
 
-Drivetrain: `smartdrive` with a 63.6 mm wheel and a 400 mm cell size (`CELL_SIZE_MM` in `main.cpp`, adjust to the real maze).
+Drivetrain: `smartdrive` with a 63.6 mm wheel and a 400 mm cell size.
 
 ## Code Layout
 | file                  | purpose                                                         |
