@@ -7,6 +7,7 @@
 !*.cpp
 !*.h
 !*.md
+!media/*
 
 # ...even if they are in subdirectories
 !*/
