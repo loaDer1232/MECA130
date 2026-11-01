@@ -113,7 +113,7 @@ The touchLED must also show what the robot is doing: each state sets its own LED
 Nothing currently transitions into `error`, and the recovery idea has been removed from the code. When `decide()` returns `IDLE` the robot goes back to `idle` and waits for a press.
 
 #### State Diagram
-![state machine diagram](./assets/statemachine.png)
+![state machine diagram](./media/state-diagram.png)
 
 ### Wall Detection
 `wall check` stops the robot and takes `BUFFER_SIZE` (5) distance readings, discarding invalid readings of 0 or less. The average goes through a hysteresis filter: a wall is set below `WALL_SET_MM` (300 mm) and only cleared above `WALL_CLEAR_MM` (390 mm), so readings near the threshold do not flicker. The result is shown on the brain screen along with the position and tile type, and the touch LED blinks the color of any special tile.
@@ -163,7 +163,7 @@ Navigation keeps a 16x16 map of `Cell`s and decides one action per call to `deci
 
 ## Simulation
 Using a simulator is optional and nothing is assessed on it. The navigation logic can be run in the [Micromouse simulator](https://github.com/mackorone/mms) without the robot. `micromouse.cpp` is wrapped in `#ifdef Micromouse`, so the macro must be defined.
-
+![MicroMouse](./media/maze_sim.gif)
 The simulator and the program talk over stdin and stdout, so anything printed to stdout is read as a command. Debug output must go through `debug_log` (stderr), never `printf`.
 
 The course also provides its own kit (`robotapi.h` with `robotapi_sim.cpp` and `robotapi_vex.cpp`, built with `build.sh`). This project uses the mms API directly instead, and `navigation.cpp` has no hardware calls so it builds either way.
