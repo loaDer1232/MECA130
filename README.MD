@@ -30,7 +30,6 @@ Each tile counts once. 1000 points in total.
 | Drive through a collapse zone without noticing   | -25 |
 | Return to a collapse zone       | -25    |
 
-The assembly point is worth +300 in the lecture text and the totals only add to 1000 with +300 (3x100 + 4x50 + 300 + 200), but the maze legend images say +200. Confirm with the demonstrator.
 
 A tile only counts if the robot **pauses and flashes** that colour on the touchLED over it. Driving over a survivor in silence scores nothing. Every reset costs marks.
 
@@ -93,7 +92,7 @@ The brief requires a state machine with at least these states, which map onto ou
 | read tile      | `color check` (flash is done in `screen()`) |
 | decide         | `decide`                                    |
 | drive          | `move`                                      |
-| halt           | not a separate state yet (`idle` after `IDLE`) |
+| halt           | `idle`                                      |
 
 The touchLED must also show what the robot is doing: each state sets its own LED colour.
 
@@ -178,12 +177,4 @@ In the simulator, tile colors are placed randomly by `mazeInit()` using the coun
 
 ## Known Limitations / TODO
 - `error` is unreachable and there is no recovery or collision detection (extension point in `handleMove`).
-- `turnToRotation` takes an absolute angle and does not wrap, so turning from west (270) to north (0) rotates the long way round.
-- If `planPath` finds no route, `decide()` still dequeues from an empty queue.
-- **Tiles are not flashed when identified.** `screen()` flashes the LED from the stored cell type, but a cell is still `TILE_UNKNOWN` when `wall check` runs on the first visit (it is only set later in `decide()`), and hazards reverse straight out. Flashing from `classifyTile(gtileColor)` instead would report every tile on arrival.
-- `GlobalDefs.h` counts do not match the real maze (3 survivors, 4 caches, 3 hazards). With `NUM_CACHE` 5 the objective check in `decide()` can never be met, so the robot would explore everything and stop without evacuating.
-- Evacuation currently waits for every cache. Caches are only a bonus, so the objective check should be survivors plus assembly, with caches collected on the way.
 - There is no `halt` state and no bumper collision recovery (the lowest priority objective).
-- `init()` sets the east and north border walls with `== MAZE_WIDTH` / `== MAZE_HEIGHT` (never true); it should be `- 1`.
-- `updateWallDetection` keeps its wall state between cells, so a reading between 300 and 390 mm inherits the previous cell's result.
-- `defColor` in `ColorCalibration.cpp` (default hue values) is not used yet, so a skipped calibration leaves every band at zero width. If `planPath` finds no route, `decide()` still dequeues from an empty queue.
