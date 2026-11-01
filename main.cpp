@@ -307,26 +307,27 @@ void handleMove(void) {
   lastHeading = targetHeading;
 
   if (gAction == FORWARD || gAction == REVERSE) {
-    Drivetrain.driveFor(forward, CELL_SIZE_MM, mm, false);
-    bool bumped = false;
-    while (Drivetrain.isMoving()) {
-      if (bumpSensor.pressing()) {
-        Drivetrain.stop();
-        bumped = true;
-        break; // leave the loop immediately
-      }
-      wait(10, msec);
-    }
+    Drivetrain.driveFor(forward, CELL_SIZE_MM, mm,
+                        true); // set false for unfinished bump recovery
+    // bool bumped = false;
+    // while (Drivetrain.isMoving()) {
+    // if (bumpSensor.pressing()) {
+    //    Drivetrain.stop();
+    //    bumped = true;
+    //    break; // leave the loop immediately
+    //   }
+    //   wait(10, msec);
+    // }
 
-    if (bumped) {
-      double d = distanceSensor.objectDistance(mm);
-      if (d > 0 && d < IDEAL_DIST) // back off to cell centre
-        Drivetrain.driveFor(reverse, IDEAL_DIST - d, mm);
-      revertXY();   // once only
-      clearPlan();
-      gState = STATE_COLOR_CHECK;
-      return; // skip correction, counter and center()
-    }
+    // if (bumped) {
+    //  double d = distanceSensor.objectDistance(mm);
+    //  if (d > 0 && d < IDEAL_DIST) // back off to cell centre
+    //   Drivetrain.driveFor(reverse, IDEAL_DIST - d, mm);
+    // revertXY();   // once only
+    // clearPlan();
+    // gState = STATE_COLOR_CHECK;
+    // return; // skip correction, counter and center()
+    //}
   }
 
   if (distanceSensor.objectDistance(mm) > IDEAL_DIST &&
@@ -351,7 +352,6 @@ void handleMove(void) {
   counter = (counter + 1);
   Brain.Screen.setCursor(6, 1);
   Brain.Screen.print("counter: %d", counter);
-  // if (!Drivetrain.isMoving())
   gState = STATE_COLOR_CHECK;
 }
 
