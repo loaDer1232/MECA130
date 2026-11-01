@@ -165,7 +165,7 @@ Using a simulator is optional and nothing is assessed on it. The navigation logi
 ![MicroMouse](./media/maze_sim.gif)
 The simulator and the program talk over stdin and stdout, so anything printed to stdout is read as a command. Debug output must go through `debug_log` (stderr), never `printf`.
 
-The course also provides its own kit (`robotapi.h` with `robotapi_sim.cpp` and `robotapi_vex.cpp`, built with `build.sh`). This project uses the mms API directly instead, and `navigation.cpp` has no hardware calls so it builds either way.
+This project uses the mms API directly instead, and `navigation.cpp` has no hardware calls so it builds either way.
 
 Build command:
 ```
